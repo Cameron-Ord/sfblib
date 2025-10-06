@@ -107,6 +107,8 @@ void sfb_write_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer){
   for(int i = 0, y = y0; y < buffer->h && i < obj->h; i++, y++){
     for(int j = 0, x = x0; x < buffer->w && j < obj->w; j++, x++){
       const uint32_t obj_pixel = obj->pixels[i * obj->w + j];
+      const uint8_t a = (obj_pixel >> 24) & 0xFF;
+      if(a == 0) continue;
       buffer->data[y * buffer->w + x] = obj_pixel;
     }
   }
@@ -140,11 +142,11 @@ int sfb_save_ppm(const sfb_framebuffer *const buffer, const char *path){
 
   for(int i = 0; i < buffer->w * buffer->h; i++){
     const uint32_t pixel = buffer->data[i];
-    //SFB FORMAT: ARGB ; PPM FORMAT ABGR
+    //SFB FORMAT: ARGB ; PPM FORMAT RGB
     uint8_t bytes[3] = { 
-      (pixel >> (0))&0xFF,
-      (pixel >> (8))&0xFF,
       (pixel >> (16))&0xFF,
+      (pixel >> (8))&0xFF,
+      (pixel >> (0))&0xFF,
     };
 
     fwrite(bytes, sizeof(bytes), 1, f);

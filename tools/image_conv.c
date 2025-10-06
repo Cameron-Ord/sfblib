@@ -15,10 +15,11 @@ sfb_obj sfb_image_load(const char *filepath) {
   const int bpp = 4;
   unsigned char *img = stbi_load(filepath, &w, &h, &channels, bpp);
   if (!img) {
-    fprintf(stderr, "Failed to load image -> %s\n", strerror(errno));
+    fprintf(stderr, "Failed to load image -> %s\n", stbi_failure_reason());
     return (sfb_obj){0};
   }
-
+  printf("width: %d height: %d channels: %d\n", w, h, channels);
+  
   uint32_t *sprite = calloc(w * h, sizeof(uint32_t));
   if (!sprite) {
     fprintf(stderr, "!calloc()->%s\n", strerror(errno));
