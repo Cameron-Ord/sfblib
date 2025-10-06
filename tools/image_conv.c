@@ -9,21 +9,20 @@
 #define IMAGE_LOADING
 #include "../sfblib/sfb.h"
 
-uint32_t *sfb_image_load(const char *filepath) {
-
+sfb_obj sfb_image_load(const char *filepath) {
   // Todo: error/access handling
   int w, h, channels;
   const int bpp = 4;
   unsigned char *img = stbi_load(filepath, &w, &h, &channels, bpp);
   if (!img) {
     fprintf(stderr, "Failed to load image -> %s\n", strerror(errno));
-    return NULL;
+    return (sfb_obj){0};
   }
 
   uint32_t *sprite = calloc(w * h, sizeof(uint32_t));
   if (!sprite) {
     fprintf(stderr, "!calloc()->%s\n", strerror(errno));
-    return NULL;
+    return (sfb_obj){0};
   }
 
   for (int y = 0; y < h; y++) {
@@ -40,11 +39,17 @@ uint32_t *sfb_image_load(const char *filepath) {
       sprite[y * w + x] = pixel;
     }
   }
+  
+  sfb_mat3x3 delta = sfb_identity();
+  sfb_mat3x3 obj = sfb_identity();
 
-  return sprite;
+  delta = sfb_scale(delta, 1.0f, 1.0f);
+  delta = sfb_translate(delta, 0, 0);
+
+  return (sfb_obj){sfb_mmult(&delta, &obj), w, h, RECT, sprite};
 }
 
-void sfb_image_free(uint32_t *sprite) {
+void sfb_sprite_free(uint32_t *sprite) {
   if (sprite) {
     free(sprite);
   }
