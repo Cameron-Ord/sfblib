@@ -81,6 +81,7 @@ sfb_obj sfb_alloc_obj(const int type, int x, int y, int w, int h, uint32_t colou
   switch(type){
     default:
       return (sfb_obj){0};
+ 
     case RECT:{
       uint32_t *pixels = calloc(w * h, sizeof(uint32_t));
       for(int i = 0; i < w * h; i++){
@@ -89,10 +90,8 @@ sfb_obj sfb_alloc_obj(const int type, int x, int y, int w, int h, uint32_t colou
 
       sfb_mat3x3 delta = sfb_identity();
       sfb_mat3x3 obj = sfb_identity();
-
-      delta = sfb_scale(delta, 1.0f, 1.0f);
       delta = sfb_translate(delta, x, y);
-
+      
       return (sfb_obj){sfb_mmult(&delta, &obj), w, h, RECT, pixels};
       } break;
     break;
