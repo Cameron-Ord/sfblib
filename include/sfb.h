@@ -31,24 +31,31 @@ typedef struct sfb_framebuffer {
 } sfb_framebuffer;
 
 #ifdef IMAGE_LOADING
-sfb_obj sfb_image_load(const char *filepath);
-void sfb_sprite_free(uint32_t *sprite);
+sfb_obj *sfb_image_load(const char *filepath);
 #endif // IMAGE_LOADING
 
-void sfb_free(uint32_t *data);
-sfb_framebuffer sfb_buffer_alloc(int width, int height);
-int sfb_buffer_realloc(uint32_t **data, int width, int height);
+//Allocation
+void sfb_free_framebuffer(sfb_framebuffer *f);
+void sfb_free_obj(sfb_obj *o);
+sfb_framebuffer *sfb_buffer_alloc(int width, int height);
+sfb_obj *sfb_rect_from_sprite(const int w, const int h, uint32_t *spr);
+sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour);
+
+//Framebuffer writes
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);
-int sfb_save_ppm(const sfb_framebuffer *const buffer, const char *path);
-void sfb_write_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer);
-sfb_obj sfb_alloc_obj(const int type, int x, int y, int w, int h,
-                      uint32_t colour);
-void sfb_write_obj(const sfb_obj *const obj, sfb_framebuffer *const buffer);
+void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer);
 void sfb_obj_move(const int x, const int y, sfb_obj *obj);
+void sfb_put_pixel(int x, int y, uint32_t *const buf, int w, int h, uint32_t colour);
+void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour, sfb_framebuffer *const buffer);
+void sfb_write_circle_generic(int xc, int yc, uint32_t colour, sfb_framebuffer *const buffer, int radius);
 
 // Matrices
 sfb_mat3x3 sfb_identity(void);
 sfb_mat3x3 sfb_scale(sfb_mat3x3 mat, int w, int h);
 sfb_mat3x3 sfb_translate(sfb_mat3x3 mat, int x, int y);
 sfb_mat3x3 sfb_mmult(const sfb_mat3x3 *const a, const sfb_mat3x3 *const b);
+
+//Utils
+int sfb_save_ppm(const sfb_framebuffer *const buffer, const char *path);
+
 #endif

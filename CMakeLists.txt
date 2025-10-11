@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 project(sfblib VERSION 1.0 LANGUAGES C)
-set(SOURCES sfblib/sfb.c tools/image_conv.c)
+set(SOURCES sfblib/2dmat.c sfblib/allocator.c sfblib/buf_write.c sfblib/utils.c tools/image_conv.c)
 add_library(sfb SHARED ${SOURCES})
+target_compile_options(sfb PRIVATE -Wall -g -Wpedantic)
