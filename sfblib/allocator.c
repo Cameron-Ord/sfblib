@@ -13,6 +13,7 @@ sfb_framebuffer *sfb_buffer_alloc(const int width, const int height) {
   fb_obj->h = height;
   fb_obj->size = width * height * sizeof(uint32_t);
   fb_obj->data = framebuffer;
+  fb_obj->c = NULL;
 
   return fb_obj;
 }

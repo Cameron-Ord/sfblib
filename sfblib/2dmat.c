@@ -34,7 +34,9 @@ sfb_mat3x3 sfb_mmult(const sfb_mat3x3 *const a, const sfb_mat3x3 *const b) {
   return r;
 }
 
-void sfb_obj_move(const int x, const int y, sfb_obj *obj) {
+void (*sfb_obj_move(const int x, const int y,
+                    sfb_obj *o))(sfb_camera_entity *) {
   sfb_mat3x3 delta = sfb_translate(sfb_identity(), x, y);
-  obj->mat = sfb_mmult(&delta, &obj->mat);
+  o->mat = sfb_mmult(&delta, &o->mat);
+  return sfb_camera_update_location;
 }

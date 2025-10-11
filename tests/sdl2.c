@@ -34,18 +34,18 @@ int main(int argc, char **argv) {
       case SDL_KEYDOWN: {
         switch (e.key.keysym.sym) {
         case SDLK_LEFT: {
-          sfb_obj_move(-5, 0, obj);
+          sfb_obj_move(-5, 0, obj)(NULL);
         } break;
         case SDLK_RIGHT: {
-          sfb_obj_move(5, 0, obj);
+          sfb_obj_move(5, 0, obj)(NULL);
         } break;
 
         case SDLK_DOWN: {
-          sfb_obj_move(0, 5, obj);
+          sfb_obj_move(0, 5, obj)(NULL);
         } break;
 
         case SDLK_UP: {
-          sfb_obj_move(0, -5, obj);
+          sfb_obj_move(0, -5, obj)(NULL);
         } break;
         }
       } break;
