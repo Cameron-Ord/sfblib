@@ -38,18 +38,24 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour, sfb_f
   const int yend = yc + radius;
 
   for(int y = ystart; y <= yend; y++){
-    for(int x = xstart; x <= xend; x++){
-      const int dx = x - xc;
-      const int dy = y - yc;
-      if(dx*dx + dy*dy <= radius*radius){
-        sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+    if(y >= 0 && y < buffer->h){
+      for(int x = xstart; x <= xend; x++){
+        if(x >= 0 && x < buffer->w){
+          const int dx = x - xc;
+          const int dy = y - yc;
+          if(dx*dx + dy*dy <= radius*radius){
+            sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+          }
+        }
       }
     }
   }
 }
 
 void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w, const int h, uint32_t colour){
-  if(y <= h && x <= w){
-    buf[y * w + x] = colour;
+  const int l = y * w + x;
+  const int max = w * h;
+  if(l < max && l >= 0){
+    buf[l] = colour;
   }
 }

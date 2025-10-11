@@ -7,7 +7,7 @@
 // own sprites.
 
 #define IMAGE_LOADING
-#include "../sfblib/sfb.h"
+#include "../include/sfb.h"
 
 sfb_obj *sfb_image_load(const char *filepath) {
   int w = 0, h = 0, channels = 0;
