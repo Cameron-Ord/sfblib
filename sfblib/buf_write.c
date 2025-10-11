@@ -9,16 +9,14 @@ void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
 void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer) {
   const int y0 = obj->mat.m5;
   const int x0 = obj->mat.m2;
-  // TODO: nearest neighbor scaling so that the scale coeffs in the mat actually
-  // do something Otherwise I can only draw stuff at their exact pixel sizing
-  for (int i = 0, y = y0; y < buffer->h && i < obj->h; i++, y++) {
-    for (int j = 0, x = x0; x < buffer->w && j < obj->w; j++, x++) {
-      const uint32_t obj_pixel = obj->pixels[i * obj->w + j];
-      const uint8_t a = (obj_pixel >> 24) & 0xFF;
-      if (a == 0){ 
-        continue;
-      }
-      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, obj_pixel);
+
+  for(int dy = 0; dy < obj->h; dy++){
+    const int y = y0 + dy;
+    if(y < 0 || y > buffer->h) continue; 
+    for(int dx = 0; dx < obj->w; dx++){
+      const int x = x0 + dx;
+      if(x < 0 || x > buffer->w) continue;
+      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, obj->pixels[dy * obj->w + dx]);
     }
   }
 }

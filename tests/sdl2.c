@@ -1,4 +1,4 @@
-#include "../sfblib/sfb.h"
+#include "../include/sfb.h"
 #include <SDL2/SDL.h>
 
 int main(int argc, char **argv) {
@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
 
   SDL_Window *w =
       SDL_CreateWindow("2D FB TEST", SDL_WINDOWPOS_CENTERED,
-                       SDL_WINDOWPOS_CENTERED, 300, 300, SDL_WINDOW_HIDDEN);
+                       SDL_WINDOWPOS_CENTERED, 1000, 1000, SDL_WINDOW_HIDDEN);
   SDL_Renderer *r = SDL_CreateRenderer(w, -1, SDL_RENDERER_SOFTWARE);
 
   SDL_Texture *t = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888,
