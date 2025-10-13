@@ -48,6 +48,10 @@ typedef enum { ALPHA = 0, RED = 1, GREEN = 2, BLUE = 3, COL_COUNT = 4 } PACK;
 sfb_obj *sfb_image_load(const char *filepath);
 #endif // IMAGE_LOADING
 
+#ifdef IMAGE_WRITING
+int sfb_image_write_png(int w, int h, const uint32_t *pixels, int channels, const char *filepath);
+#endif // IMAGE_WRITING
+
 // Allocation
 void sfb_free_framebuffer(sfb_framebuffer *f);
 void sfb_free_obj(sfb_obj *o);
@@ -58,6 +62,11 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour);
 sfb_obj *sfb_create_rects_n(int w, int h, uint32_t colour, size_t count);
 sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh,
                                      const sfb_obj *const tracked);
+
+// Scaling
+uint32_t *sfb_scale_nearest_centered_malloc(uint32_t *src, int *srcw, int *srch, float scale);
+uint32_t *sfb_scale_nearest_topleft_malloc(uint32_t *src, int *srcw, int *srch, int scale);
+
 // Camera
 void sfb_fb_set_camera(sfb_framebuffer *const fb, const sfb_camera *c);
 void sfb_camera_update_location(sfb_camera *const c);

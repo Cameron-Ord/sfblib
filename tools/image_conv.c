@@ -23,17 +23,23 @@ sfb_obj *sfb_image_load(const char *filepath) {
   if(w > 0 && h > 0 && channels > 0){
     uint32_t sprite[w * h];
     memset(sprite, 0, w * h * sizeof(uint32_t));
+    const uint8_t *end = img + (w * h * channels);
+    
+    for(int y = 0; y < h; y++){
+      const int offset = y * w;
+      for(int x = 0; x < w; x++){
+        const int access = offset + x;
+        uint8_t *slice = img + (access * channels);
+        uint8_t colours[channels];
+      
+        for(int c = 0; c < channels && ((slice + c) < end); c++){
+          colours[c] = *(slice + c);
+        }
 
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
-        // stbi_image always produces RGBA or RGB format
-        // [RGBA] [RGBA] [RGBA] [RGBA] 
-        const int access = (y * w + x) * channels;
-
-        const uint8_t r = img[access + 0];
-        const uint8_t g = img[access + 1];
-        const uint8_t b = img[access + 2];
-        const uint8_t a = (channels == requested_channels) ? img[access + 3] : 255;
+        const uint8_t r = colours[0];
+        const uint8_t g = colours[1];
+        const uint8_t b = colours[2];
+        const uint8_t a = (channels == requested_channels) ? colours[3] : 255;
 
         const uint32_t pixel = (a << 24) | (r << 16) | (g << 8) | b;
         sprite[y * w + x] = pixel;
