@@ -1,7 +1,7 @@
 #include "../include/sfb.h"
 
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
-  for (int i = 0; i < buffer->w * buffer->h; i++) {
+  for(int i = 0; i < buffer->w * buffer->h; i++){
     buffer->data[i] = clear_colour;
   }
 }

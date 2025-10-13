@@ -31,7 +31,10 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour) {
     free(obj);
     return NULL;
   }
-  memset(obj->pixels, colour, w * h * sizeof(uint32_t));
+
+  for(int i = 0; i < w * h; i++){
+    obj->pixels[i] = colour;
+  }
 
   sfb_mat3x3 delta = sfb_identity();
   sfb_mat3x3 object_matrix = sfb_identity();
