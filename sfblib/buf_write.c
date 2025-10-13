@@ -9,15 +9,15 @@ void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
 void sfb_write_obj_rect(const sfb_obj *const obj,
                         sfb_framebuffer *const buffer) {
   int x0, y0;
-  const int cond = (buffer->c && *buffer->c) ? 1 : 0;
+  const int cond = buffer->camera ? 1 : 0;
   switch (cond) {
   default: {
     y0 = obj->mat.m5;
     x0 = obj->mat.m2;
   } break;
   case 1: {
-    y0 = obj->mat.m5 - (*buffer->c)->y;
-    x0 = obj->mat.m2 - (*buffer->c)->x;
+    y0 = obj->mat.m5 - buffer->camera->y;
+    x0 = obj->mat.m2 - buffer->camera->x;
   } break;
   }
 

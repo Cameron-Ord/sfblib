@@ -9,15 +9,15 @@
 
 typedef enum { SFB_RECT = 0, SFB_TRIANGLE = 1, SFB_CIRCLE = 2 } obj_type;
 
-typedef struct sfb_camera_entity sfb_camera_entity;
+typedef struct sfb_camera sfb_camera;
 typedef struct sfb_obj sfb_obj;
 
-typedef struct sfb_camera_entity {
+typedef struct sfb_camera {
   // The entity it is tracking.
   const sfb_obj *tracked;
   // Camera x,y and screenw, screenh
   int x, y, scrw, scrh;
-} sfb_camera_entity;
+} sfb_camera;
 
 typedef struct sfb_mat3x3 {
   //    w, ang, x
@@ -39,7 +39,7 @@ typedef struct sfb_framebuffer {
   size_t size;
   uint32_t *data;
   // Read only pointer, can be swapped out with other const pointers
-  sfb_camera_entity **c;
+  const sfb_camera *camera;
 } sfb_framebuffer;
 
 typedef enum { ALPHA = 0, RED = 1, GREEN = 2, BLUE = 3, COL_COUNT = 4 } PACK;
@@ -51,14 +51,16 @@ sfb_obj *sfb_image_load(const char *filepath);
 // Allocation
 void sfb_free_framebuffer(sfb_framebuffer *f);
 void sfb_free_obj(sfb_obj *o);
+void sfb_free_camera(sfb_camera *c);
 sfb_framebuffer *sfb_buffer_alloc(int width, int height);
 sfb_obj *sfb_rect_from_sprite(const int w, const int h, uint32_t *spr);
 sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour);
-sfb_camera_entity *sfb_create_camera(int x, int y, int scrw, int scrh,
-                                     sfb_obj *tracked);
+sfb_obj *sfb_create_rects_n(int w, int h, uint32_t colour, size_t count);
+sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh,
+                                     const sfb_obj *const tracked);
 // Camera
-void sfb_set_camera_entity(sfb_framebuffer *const fb, sfb_camera_entity **c);
-void sfb_camera_update_location(sfb_camera_entity *const c);
+void sfb_fb_set_camera(sfb_framebuffer *const fb, const sfb_camera *c);
+void sfb_camera_update_location(sfb_camera *const c);
 
 // RGBA manipulation
 void sfb_pack_argb32(uint8_t c[COL_COUNT], uint32_t pixel);
@@ -71,7 +73,7 @@ uint8_t sfb_mix_col(uint8_t src, uint8_t dst, uint8_t a);
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);
 void sfb_write_obj_rect(const sfb_obj *const obj,
                         sfb_framebuffer *const buffer);
-void (*sfb_obj_move(const int x, const int y, sfb_obj *o))(sfb_camera_entity *);
+void (*sfb_obj_move(const int x, const int y, sfb_obj *o))(sfb_camera *);
 void sfb_put_pixel(int x, int y, uint32_t *const buf, int w, int h,
                    uint32_t colour);
 void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,

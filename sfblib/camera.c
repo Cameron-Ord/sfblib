@@ -1,13 +1,13 @@
 #include "../include/sfb.h"
 
-sfb_camera_entity *sfb_create_camera(int x, int y, int scrw, int scrh,
-                                     sfb_obj *tracked) {
+sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh,
+                                     const sfb_obj *const tracked) {
   if (!tracked) {
     fprintf(stderr, "Must provide a valid tracked object\n");
     return NULL;
   }
 
-  sfb_camera_entity *c = calloc(1, sizeof(sfb_camera_entity));
+  sfb_camera *c = calloc(1, sizeof(sfb_camera));
   if (!c) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
@@ -20,7 +20,7 @@ sfb_camera_entity *sfb_create_camera(int x, int y, int scrw, int scrh,
   return c;
 }
 
-void sfb_camera_update_location(sfb_camera_entity *const c) {
+void sfb_camera_update_location(sfb_camera *const c) {
   if (!c || !c->tracked) {
     return;
   }
@@ -34,6 +34,6 @@ void sfb_camera_update_location(sfb_camera_entity *const c) {
   c->y = (y + eh / 2) - c->scrh / 2;
 }
 
-void sfb_set_camera_entity(sfb_framebuffer *const fb, sfb_camera_entity **c) {
-  fb->c = c;
+void sfb_fb_set_camera(sfb_framebuffer *const fb, const sfb_camera *c) {
+  fb->camera = c;
 }
