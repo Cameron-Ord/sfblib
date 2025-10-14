@@ -7,11 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { SFB_RECT = 0, SFB_TRIANGLE = 1, SFB_CIRCLE = 2 } obj_type;
-
 typedef struct sfb_camera sfb_camera;
 typedef struct sfb_framebuffer sfb_framebuffer;
 typedef struct sfb_obj sfb_obj;
+
+#define SFB_COL_CHANNELS 4
+#define ALPHA 0
+#define RED 1
+#define GREEN 2
+#define BLUE 3
 
 typedef struct sfb_camera {
   // Camera x,y and screenw, screenh
@@ -32,7 +36,6 @@ typedef struct sfb_mat3x3 {
 typedef struct sfb_obj {
   sfb_mat3x3 mat;
   int w, h;
-  int type;
   uint32_t *pixels;
   //fns
   void (*(*move)(int, int, sfb_obj *))(sfb_camera *const , const sfb_obj *const);
@@ -47,10 +50,9 @@ typedef struct sfb_framebuffer {
   void (*write_obj)(const sfb_obj *const, sfb_framebuffer *const, const sfb_camera *const);
   void (*write_rect)(int, int, int, int, uint32_t, sfb_framebuffer *const);
   void (*write_circle)(int, int, uint32_t, sfb_framebuffer *const, int);
+  uint8_t (*uint8_buf)(const uint32_t *const);
 
 } sfb_framebuffer;
-
-typedef enum { ALPHA = 0, RED = 1, GREEN = 2, BLUE = 3, COL_COUNT = 4 } PACK;
 
 #ifdef IMAGE_LOADING
 sfb_obj *sfb_image_load(const char *filepath);
@@ -65,7 +67,7 @@ void sfb_free_framebuffer(sfb_framebuffer *f);
 void sfb_free_obj(sfb_obj *o);
 void sfb_free_camera(sfb_camera *c);
 sfb_framebuffer *sfb_buffer_alloc(int width, int height);
-sfb_obj *sfb_rect_from_sprite(int w, int h, uint32_t *spr);
+sfb_obj *sfb_rect_from_sprite(int w, int h, const uint32_t *spr);
 sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour);
 sfb_obj *sfb_create_rects_n(int w, int h, uint32_t colour, size_t count);
 sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh, const sfb_obj *const target);
@@ -82,11 +84,16 @@ void sfb_camera_set_position_fixed(sfb_camera *const c, int x, int y);
 void sfb_camera_set_screen(sfb_camera* const c, int w, int h);
 
 // RGBA manipulation
-void sfb_pack_argb32(uint8_t c[COL_COUNT], uint32_t pixel);
-uint32_t sfb_unpack_argb32(const uint8_t c[COL_COUNT]);
 uint32_t sfb_blend_pixel(uint32_t srcp, uint32_t dstp);
 uint8_t sfb_mix_alpha(uint8_t src, uint8_t dst);
 uint8_t sfb_mix_col(uint8_t src, uint8_t dst, uint8_t a);
+void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit);
+void sfb_shift_bits_right_uint8(uint8_t *col, uint32_t pixel, int bit);
+uint32_t *sfb_argb8_to_argb32(const uint8_t pixels[], int w, int h, int channels);
+uint32_t *sfb_rgba8_to_argb32(const uint8_t pixels[], int w, int h, int channels);
+uint8_t *sfb_argb32_to_rgba8(const uint32_t pixels[], int w, int h, int channels);
+uint32_t sfb_rgba32_to_argb32(uint32_t rgba);
+uint32_t sfb_argb32_to_rgba32(uint32_t argb);
 
 // Framebuffer writes
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);

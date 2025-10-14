@@ -50,7 +50,6 @@ sfb_obj *sfb_create_rects_n(int w, int h, uint32_t colour, size_t count) {
     obj[i].mat = sfb_mmult(&delta, &object_matrix);
     obj[i].w = w;
     obj[i].h = h;
-    obj[i].type = SFB_RECT;
     obj[i].move = sfb_obj_move;
   }
 
@@ -82,13 +81,12 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour) {
   obj->mat = sfb_mmult(&delta, &object_matrix);
   obj->w = w;
   obj->h = h;
-  obj->type = SFB_RECT;
   obj->move = sfb_obj_move;
 
   return obj;
 }
 
-sfb_obj *sfb_rect_from_sprite(const int w, const int h, uint32_t *spr) {
+sfb_obj *sfb_rect_from_sprite(const int w, const int h, const uint32_t *spr) {
   sfb_obj *obj = calloc(1, sizeof(sfb_obj));
   if (!obj) {
     fprintf(stderr, "!calloc()->%s\n", strerror(errno));
@@ -110,7 +108,6 @@ sfb_obj *sfb_rect_from_sprite(const int w, const int h, uint32_t *spr) {
   obj->mat = sfb_mmult(&delta, &object_matrix);
   obj->w = w;
   obj->h = h;
-  obj->type = SFB_RECT;
   obj->move = sfb_obj_move;
 
   return obj;

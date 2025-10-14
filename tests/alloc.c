@@ -1,4 +1,4 @@
-#include "../sfblib/sfb.h"
+#include "../include/sfb.h"
 
 int main(int argc, char **argv){
   sfb_framebuffer *f = sfb_buffer_alloc(800, 600);

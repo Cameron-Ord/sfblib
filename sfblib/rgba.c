@@ -1,20 +1,95 @@
 #include "../include/sfb.h"
 
-void sfb_pack_argb32(uint8_t c[COL_COUNT], uint32_t pixel) {
-  c[ALPHA] = (pixel >> (24)) & 0xFF;
-  c[RED] = (pixel >> (16)) & 0xFF;
-  c[GREEN] = (pixel >> (8)) & 0xFF;
-  c[BLUE] = pixel & 0xFF;
+uint32_t sfb_argb32_to_rgba32(uint32_t argb){
+  const uint32_t rgba = (argb << 8) | (argb >> 24);
+  return rgba;
 }
 
-uint32_t sfb_unpack_argb32(const uint8_t c[COL_COUNT]) {
-  uint32_t pixel =
-      (c[ALPHA] << 24) | (c[RED] << 16) | (c[GREEN] << 8) | (c[BLUE]);
-  return pixel;
+uint32_t sfb_rgba32_to_argb32(uint32_t rgba){
+  const uint32_t argb = (rgba >> 8) | (rgba << 24);
+  return argb;
+}
+
+void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit){
+  *pixel |= (uint32_t)(col << bit);
+}
+
+void sfb_shift_bits_right_uint8(uint8_t *col, uint32_t pixel, int bit){
+ *col |= (uint8_t)(pixel >> bit)&0xFF; 
+}
+
+uint32_t *sfb_argb8_to_argb32(const uint8_t pixels[], int w, int h, int channels){
+  if(channels != SFB_COL_CHANNELS){
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+    return NULL;
+  }
+
+  uint32_t *buf = malloc(w * h * sizeof(uint32_t));
+  if(!buf){
+    fprintf(stderr, "!malloc()->%s\n", strerror(errno));
+    return NULL;
+  }
+  
+  const int stride = channels;
+  for(int i = 0; i < w * h; i++){
+    uint32_t argb = 0;
+    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
+      sfb_shift_bits_left_uint32(&argb, pixels[i * stride + c] , bit);
+    }
+    buf[i] = argb;
+  }
+
+  return buf;
+}
+
+uint32_t *sfb_rgba8_to_argb32(const uint8_t pixels[], int w, int h, int channels){
+  if(channels != SFB_COL_CHANNELS){
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+    return NULL;
+  }
+ 
+  uint32_t *buf = malloc(w * h * sizeof(uint32_t));
+  if(!buf){
+    fprintf(stderr, "!malloc()->%s\n", strerror(errno));
+    return NULL;
+  }
+  
+  const int stride = channels;
+  for(int i = 0; i < w * h; i++){
+    uint32_t rgba = 0;
+    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
+      sfb_shift_bits_left_uint32(&rgba, pixels[i * stride + c] , bit);
+    }
+    buf[i] = sfb_rgba32_to_argb32(rgba);
+  }
+
+  return buf;
+}
+
+uint8_t *sfb_argb32_to_rgba8(const uint32_t pixels[], int w, int h, int channels){
+  if(channels != SFB_COL_CHANNELS){
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+    return NULL;
+  }
+ 
+  uint8_t *buf = malloc(w * h * channels * sizeof(uint8_t));
+  if(!buf){
+    fprintf(stderr, "!malloc()->%s\n", strerror(errno));
+    return NULL;
+  }
+
+  const int stride = channels;
+  for(int i = 0; i < w * h; i++){
+    uint32_t rgba = sfb_argb32_to_rgba32(pixels[i]);
+    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
+      sfb_shift_bits_right_uint8(&buf[i * stride + c], rgba, bit);
+    }
+  }
+
+  return buf;
 }
 
 uint32_t sfb_blend_pixel(uint32_t dstp, uint32_t srcp) {
-
   uint8_t a1 = (dstp >> 24) & 0xFF;
   uint8_t r1 = (dstp >> 16) & 0xFF;
   uint8_t g1 = (dstp >> 8) & 0xFF;
@@ -38,6 +113,6 @@ uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src) {
 }
 
 uint8_t sfb_mix_col(uint8_t dst, uint8_t src, uint8_t a) {
-    const uint8_t blended = (src * a + dst * (255 - a)) / 255;
+  const uint8_t blended = (src * a + dst * (255 - a)) / 255;
   return (blended > 255) ? 255 : blended;
 }
