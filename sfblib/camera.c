@@ -1,39 +1,25 @@
 #include "../include/sfb.h"
 
-sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh,
-                                     const sfb_obj *const tracked) {
-  if (!tracked) {
-    fprintf(stderr, "Must provide a valid tracked object\n");
-    return NULL;
-  }
-
-  sfb_camera *c = calloc(1, sizeof(sfb_camera));
-  if (!c) {
-    fprintf(stderr, "!malloc()->%s\n", strerror(errno));
-    return NULL;
-  }
-
-  c->scrw = scrw, c->scrh = scrh;
-  c->tracked = tracked;
-  sfb_camera_update_location(c);
-
-  return c;
-}
-
-void sfb_camera_update_location(sfb_camera *const c) {
-  if (!c || !c->tracked) {
+void sfb_camera_set_position_target(sfb_camera *const c, const sfb_obj *const target) {
+  if (!c || !target) {
     return;
   }
 
-  const int x = c->tracked->mat.m2;
-  const int y = c->tracked->mat.m5;
-  const int ew = c->tracked->w;
-  const int eh = c->tracked->h;
+  const int tx = target->mat.m2;
+  const int ty = target->mat.m5;
+  const int tw = target->w;
+  const int th = target->h;
 
-  c->x = (x + ew / 2) - c->scrw / 2;
-  c->y = (y + eh / 2) - c->scrh / 2;
+  c->x = (tx + tw / 2) - c->scrw / 2;
+  c->y = (ty + th / 2) - c->scrh / 2;
 }
 
-void sfb_fb_set_camera(sfb_framebuffer *const fb, const sfb_camera *c) {
-  fb->camera = c;
+void sfb_camera_set_position_fixed(sfb_camera *const c, const int x, const int y){
+  c->x = x;
+  c->y = y;
+}
+
+void sfb_camera_set_screen(sfb_camera* const c, const int w, const int h){
+  c->scrw = w;
+  c->scrh = h;
 }

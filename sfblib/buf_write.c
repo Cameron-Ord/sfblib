@@ -1,34 +1,42 @@
 #include "../include/sfb.h"
 
-void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
+inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
+  if(!buffer){
+    return;
+  }
   for(int i = 0; i < buffer->w * buffer->h; i++){
     buffer->data[i] = clear_colour;
   }
 }
 
-void sfb_write_obj_rect(const sfb_obj *const obj,
-                        sfb_framebuffer *const buffer) {
+//Pretty much all you need to render literally anything?
+//Camera can be passed by ptr or NULL for no camera
+inline void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer, const sfb_camera *const camera) {
+  if(!obj || !buffer){
+    return;
+  }
+
   int x0, y0;
-  const int cond = buffer->camera ? 1 : 0;
+  const int cond = camera ? 1 : 0;
   switch (cond) {
   default: {
     y0 = obj->mat.m5;
     x0 = obj->mat.m2;
   } break;
   case 1: {
-    y0 = obj->mat.m5 - buffer->camera->y;
-    x0 = obj->mat.m2 - buffer->camera->x;
+    y0 = obj->mat.m5 - camera->y;
+    x0 = obj->mat.m2 - camera->x;
   } break;
   }
 
   for (int dy = 0; dy < obj->h; dy++) {
     const int y = y0 + dy;
-    if (y < 0 || y >= buffer->h)
+    if (y < 0 || (y >= buffer->h || y >= obj->h))
       continue;
 
     for (int dx = 0; dx < obj->w; dx++) {
       const int x = x0 + dx;
-      if (x < 0 || x >= buffer->w)
+      if (x < 0 || (x >= buffer->w || x >= obj->w))
         continue;
 
       sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
@@ -39,6 +47,10 @@ void sfb_write_obj_rect(const sfb_obj *const obj,
 
 void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
                             sfb_framebuffer *const buffer) {
+  if(!buffer){
+    return;
+  }
+
   for (int dy = 0; dy < h0; dy++) {
     const int y = y0 + dy;
     if (y < 0 || y >= buffer->h)
@@ -55,6 +67,10 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
 
 void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
                               sfb_framebuffer *const buffer, const int radius) {
+  if(!buffer){
+    return;
+  }
+
   const int xstart = xc - radius;
   const int ystart = yc - radius;
   const int xend = xc + radius;
@@ -79,6 +95,9 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
 
 void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
                    const int h, uint32_t colour) {
+  if(!buf){
+    return;
+  }
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
