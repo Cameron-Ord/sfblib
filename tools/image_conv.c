@@ -9,32 +9,37 @@
 #define IMAGE_LOADING
 #include "../include/sfb.h"
 
-sfb_obj *sfb_image_load(const char *filepath) {
+sfb_obj3x3 *sfb_image_load3x3(const char *filepath) {
   int w = 0, h = 0, channels = 0;
   const int requested_channels = SFB_COL_CHANNELS;
 
-  unsigned char *img = stbi_load(filepath, &w, &h, &channels, requested_channels);
+  unsigned char *img =
+      stbi_load(filepath, &w, &h, &channels, requested_channels);
   if (!img) {
     fprintf(stderr, "Failed to load image -> %s\n", stbi_failure_reason());
     return NULL;
   }
-  printf("width: %d height: %d channels: %d requested channels: %d\n", w, h, channels, requested_channels);
-  
-  //TODO: Add support for RGB later I guess
-  if(w > 0 && h > 0 && channels == requested_channels){
+  printf("width: %d height: %d channels: %d requested channels: %d\n", w, h,
+         channels, requested_channels);
+
+  // TODO: Add support for RGB later I guess
+  if (w > 0 && h > 0 && channels == requested_channels) {
     uint32_t *pixels = sfb_rgba8_to_argb32(img, w, h, channels);
-    if(!pixels){
+    if (!pixels) {
       stbi_image_free(img);
       return NULL;
     }
-    
-    sfb_obj *o = sfb_rect_from_sprite(w, h, pixels);
+
+    sfb_obj3x3 *o = sfb_rect_from_sprite3x3(w, h, pixels);
     free(pixels);
     return o;
   } else {
-    fprintf(stderr, "Incorrect channel count or size! CHANNELS-> Need:%d Have:%d SIZE-> %dx%d\n", SFB_COL_CHANNELS, channels, w, h);
+    fprintf(stderr,
+            "Incorrect channel count or size! CHANNELS-> Need:%d Have:%d "
+            "SIZE-> %dx%d\n",
+            SFB_COL_CHANNELS, channels, w, h);
   }
-  
+
   stbi_image_free(img);
   return NULL;
 }

@@ -1,18 +1,20 @@
-#include "../include/sfb.h"
+#include "../include/sfb_camera.h"
+#include "../include/sfb_framebuffer.h"
+#include "../include/sfb_rgba.h"
 
 inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
-  if(!buffer){
+  if (!buffer) {
     return;
   }
-  for(int i = 0; i < buffer->w * buffer->h; i++){
+  for (int i = 0; i < buffer->w * buffer->h; i++) {
     buffer->data[i] = clear_colour;
   }
 }
 
-//Pretty much all you need to render literally anything?
-//Camera can be passed by ptr or NULL for no camera
-inline void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer, const sfb_camera *const camera) {
-  if(!obj || !buffer){
+inline void sfb_write_obj_rect3x3(const sfb_obj3x3 *const obj,
+                                  sfb_framebuffer *const buffer,
+                                  const sfb_camera3x3 *const camera) {
+  if (!obj || !buffer) {
     return;
   }
 
@@ -24,8 +26,8 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const 
     x0 = obj->mat.m2;
   } break;
   case 1: {
-    y0 = obj->mat.m5 - camera->y;
-    x0 = obj->mat.m2 - camera->x;
+    y0 = obj->mat.m5 - camera->mat.m5;
+    x0 = obj->mat.m2 - camera->mat.m2;
   } break;
   }
 
@@ -39,15 +41,15 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const 
       if (x < 0 || (x >= buffer->w || x >= obj->w))
         continue;
 
-      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
-                    obj->pixels[dy * obj->w + dx]);
+      sfb_put_pixel3x3(x, y, buffer->data, buffer->w, buffer->h,
+                       obj->pixels[dy * obj->w + dx]);
     }
   }
 }
 
-void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
-                            sfb_framebuffer *const buffer) {
-  if(!buffer){
+void sfb_write_rect_generic3x3(int x0, int y0, int w0, int h0, uint32_t colour,
+                               sfb_framebuffer *const buffer) {
+  if (!buffer) {
     return;
   }
 
@@ -60,14 +62,15 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+      sfb_put_pixel3x3(x, y, buffer->data, buffer->w, buffer->h, colour);
     }
   }
 }
 
-void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
-                              sfb_framebuffer *const buffer, const int radius) {
-  if(!buffer){
+void sfb_write_circle_generic3x3(const int xc, const int yc, uint32_t colour,
+                                 sfb_framebuffer *const buffer,
+                                 const int radius) {
+  if (!buffer) {
     return;
   }
 
@@ -87,15 +90,15 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
       const int dx = x - xc;
       const int dy = y - yc;
       if (dx * dx + dy * dy <= radius * radius) {
-        sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+        sfb_put_pixel3x3(x, y, buffer->data, buffer->w, buffer->h, colour);
       }
     }
   }
 }
 
-void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour) {
-  if(!buf){
+void sfb_put_pixel3x3(const int x, const int y, uint32_t *const buf,
+                      const int w, const int h, uint32_t colour) {
+  if (!buf) {
     return;
   }
   const int l = y * w + x;

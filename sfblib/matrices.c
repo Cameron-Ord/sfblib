@@ -1,22 +1,23 @@
-#include "../include/sfb.h"
+#include "../include/sfb_camera.h"
+#include "../include/sfb_framebuffer.h"
 
-sfb_mat3x3 sfb_identity(void) {
+sfb_mat3x3 sfb_identity3x3(void) {
   return (sfb_mat3x3){1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 }
 
-sfb_mat3x3 sfb_translate(sfb_mat3x3 mat, int x, int y) {
+sfb_mat3x3 sfb_translate3x3(sfb_mat3x3 mat, int x, int y) {
   mat.m2 = x;
   mat.m5 = y;
   return mat;
 }
 
-sfb_mat3x3 sfb_scale(sfb_mat3x3 mat, int w, int h) {
+sfb_mat3x3 sfb_scale3x3(sfb_mat3x3 mat, int w, int h) {
   mat.m0 = w;
   mat.m4 = h;
   return mat;
 }
 
-sfb_mat3x3 sfb_mmult(const sfb_mat3x3 *const a, const sfb_mat3x3 *const b) {
+sfb_mat3x3 sfb_mmult3x3(const sfb_mat3x3 *const a, const sfb_mat3x3 *const b) {
   sfb_mat3x3 r;
 
   r.m0 = a->m0 * b->m0 + a->m1 * b->m3 + a->m2 * b->m6;
@@ -34,9 +35,10 @@ sfb_mat3x3 sfb_mmult(const sfb_mat3x3 *const a, const sfb_mat3x3 *const b) {
   return r;
 }
 
-void (*sfb_obj_move(const int x, const int y,
-                    sfb_obj *o))(sfb_camera *const, const sfb_obj* const) {
-  sfb_mat3x3 delta = sfb_translate(sfb_identity(), x, y);
-  o->mat = sfb_mmult(&delta, &o->mat);
-  return sfb_camera_set_position_target;
+void (*sfb_obj3x3_move(const int x, const int y,
+                       sfb_obj3x3 *o))(sfb_camera3x3 *const,
+                                       const sfb_obj3x3 *const) {
+  sfb_mat3x3 delta = sfb_translate3x3(sfb_identity3x3(), x, y);
+  o->mat = sfb_mmult3x3(&delta, &o->mat);
+  return sfb_camera3x3_set_position_target;
 }

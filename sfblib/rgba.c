@@ -1,40 +1,46 @@
-#include "../include/sfb.h"
+#include "../include/sfb_rgba.h"
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-uint32_t sfb_argb32_to_rgba32(uint32_t argb){
+uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
   const uint32_t rgba = (argb << 8) | (argb >> 24);
   return rgba;
 }
 
-uint32_t sfb_rgba32_to_argb32(uint32_t rgba){
+uint32_t sfb_rgba32_to_argb32(uint32_t rgba) {
   const uint32_t argb = (rgba >> 8) | (rgba << 24);
   return argb;
 }
 
-void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit){
+void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit) {
   *pixel |= (uint32_t)(col << bit);
 }
 
-void sfb_shift_bits_right_uint8(uint8_t *col, uint32_t pixel, int bit){
- *col |= (uint8_t)(pixel >> bit)&0xFF; 
+void sfb_shift_bits_right_uint8(uint8_t *col, uint32_t pixel, int bit) {
+  *col |= (uint8_t)(pixel >> bit) & 0xFF;
 }
 
-uint32_t *sfb_argb8_to_argb32(const uint8_t pixels[], int w, int h, int channels){
-  if(channels != SFB_COL_CHANNELS){
-    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+uint32_t *sfb_argb8_to_argb32(const uint8_t pixels[], int w, int h,
+                              int channels) {
+  if (channels != SFB_COL_CHANNELS) {
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n",
+            SFB_COL_CHANNELS, channels);
     return NULL;
   }
 
   uint32_t *buf = malloc(w * h * sizeof(uint32_t));
-  if(!buf){
+  if (!buf) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
   }
-  
+
   const int stride = channels;
-  for(int i = 0; i < w * h; i++){
+  for (int i = 0; i < w * h; i++) {
     uint32_t argb = 0;
-    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
-      sfb_shift_bits_left_uint32(&argb, pixels[i * stride + c] , bit);
+    for (int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8) {
+      sfb_shift_bits_left_uint32(&argb, pixels[i * stride + c], bit);
     }
     buf[i] = argb;
   }
@@ -42,23 +48,25 @@ uint32_t *sfb_argb8_to_argb32(const uint8_t pixels[], int w, int h, int channels
   return buf;
 }
 
-uint32_t *sfb_rgba8_to_argb32(const uint8_t pixels[], int w, int h, int channels){
-  if(channels != SFB_COL_CHANNELS){
-    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+uint32_t *sfb_rgba8_to_argb32(const uint8_t pixels[], int w, int h,
+                              int channels) {
+  if (channels != SFB_COL_CHANNELS) {
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n",
+            SFB_COL_CHANNELS, channels);
     return NULL;
   }
- 
+
   uint32_t *buf = malloc(w * h * sizeof(uint32_t));
-  if(!buf){
+  if (!buf) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
   }
-  
+
   const int stride = channels;
-  for(int i = 0; i < w * h; i++){
+  for (int i = 0; i < w * h; i++) {
     uint32_t rgba = 0;
-    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
-      sfb_shift_bits_left_uint32(&rgba, pixels[i * stride + c] , bit);
+    for (int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8) {
+      sfb_shift_bits_left_uint32(&rgba, pixels[i * stride + c], bit);
     }
     buf[i] = sfb_rgba32_to_argb32(rgba);
   }
@@ -66,22 +74,24 @@ uint32_t *sfb_rgba8_to_argb32(const uint8_t pixels[], int w, int h, int channels
   return buf;
 }
 
-uint8_t *sfb_argb32_to_rgba8(const uint32_t pixels[], int w, int h, int channels){
-  if(channels != SFB_COL_CHANNELS){
-    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n", SFB_COL_CHANNELS, channels);
+uint8_t *sfb_argb32_to_rgba8(const uint32_t pixels[], int w, int h,
+                             int channels) {
+  if (channels != SFB_COL_CHANNELS) {
+    fprintf(stderr, "Incorrect channel count! Need: %d Have: %d\n",
+            SFB_COL_CHANNELS, channels);
     return NULL;
   }
- 
+
   uint8_t *buf = malloc(w * h * channels * sizeof(uint8_t));
-  if(!buf){
+  if (!buf) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
   }
 
   const int stride = channels;
-  for(int i = 0; i < w * h; i++){
+  for (int i = 0; i < w * h; i++) {
     uint32_t rgba = sfb_argb32_to_rgba32(pixels[i]);
-    for(int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8){
+    for (int c = 0, bit = 24; c < channels && bit >= 0; c++, bit -= 8) {
       sfb_shift_bits_right_uint8(&buf[i * stride + c], rgba, bit);
     }
   }
