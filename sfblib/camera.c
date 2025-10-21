@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-void sfb_camera3x3_set_position_target(sfb_camera3x3 *const c,
-                                       const sfb_obj3x3 *const target) {
+void sfb_camera_set_position_target(sfb_camera *const c,
+                                    const sfb_obj *const target) {
   if (!c || !target) {
     return;
   }
@@ -23,42 +23,41 @@ void sfb_camera3x3_set_position_target(sfb_camera3x3 *const c,
   c->mat.m5 = y;
 }
 
-void sfb_camera3x3_set_position_fixed(sfb_camera3x3 *const c, const int x,
-                                      const int y) {
+void sfb_camera_set_position_fixed(sfb_camera *const c, const int x,
+                                   const int y) {
   c->mat.m2 = x;
   c->mat.m5 = y;
 }
 
-void sfb_camera3x3_set_screen(sfb_camera3x3 *const c, const int w,
-                              const int h) {
+void sfb_camera_set_screen(sfb_camera *const c, const int w, const int h) {
   c->scrw = w;
   c->scrh = h;
 }
 
-void sfb_free_camera3x3(sfb_camera3x3 *c) {
+void sfb_free_camera(sfb_camera *c) {
   if (c) {
     free(c);
   }
   c = NULL;
 }
 
-sfb_camera3x3 *sfb_create_camera3x3(int x, int y, int scrw, int scrh,
-                                    const sfb_obj3x3 *const target) {
+sfb_camera *sfb_create_camera(int x, int y, int scrw, int scrh,
+                              const sfb_obj *const target) {
   if (!target) {
     fprintf(stderr, "Camera needs a target!\n");
     return NULL;
   }
 
-  sfb_camera3x3 *c = calloc(1, sizeof(sfb_camera3x3));
+  sfb_camera *c = calloc(1, sizeof(sfb_camera));
   if (!c) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
   }
 
-  sfb_camera3x3_set_screen(c, scrw, scrh);
-  sfb_camera3x3_set_position_target(c, target);
-  c->setpos_target = sfb_camera3x3_set_position_target;
-  c->setpos_fixed = sfb_camera3x3_set_position_fixed;
+  sfb_camera_set_screen(c, scrw, scrh);
+  sfb_camera_set_position_target(c, target);
+  c->setpos_target = sfb_camera_set_position_target;
+  c->setpos_fixed = sfb_camera_set_position_fixed;
 
   return c;
 }

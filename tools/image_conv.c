@@ -9,7 +9,7 @@
 #define IMAGE_LOADING
 #include "../include/sfb.h"
 
-sfb_obj3x3 *sfb_image_load3x3(const char *filepath) {
+sfb_obj *sfb_image_load(const char *filepath, int flags) {
   int w = 0, h = 0, channels = 0;
   const int requested_channels = SFB_COL_CHANNELS;
 
@@ -30,7 +30,7 @@ sfb_obj3x3 *sfb_image_load3x3(const char *filepath) {
       return NULL;
     }
 
-    sfb_obj3x3 *o = sfb_rect_from_sprite3x3(w, h, pixels);
+    sfb_obj *o = sfb_rect_from_sprite(w, h, pixels);
     free(pixels);
     return o;
   } else {

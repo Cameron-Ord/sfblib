@@ -26,7 +26,7 @@ typedef struct sfb_framebuffer3x3 sfb_framebuffer3x3;
 typedef struct sfb_obj3x3 sfb_obj3x3;
 
 #ifdef IMAGE_LOADING
-sfb_obj3x3 *sfb_image_load(const char *filepath);
+sfb_obj *sfb_image_load(const char *filepath, int flags);
 #endif // IMAGE_LOADING
 
 #ifdef IMAGE_WRITING
