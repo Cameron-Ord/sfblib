@@ -9,6 +9,8 @@ typedef struct sfb_obj sfb_obj;
 typedef struct sfb_framebuffer sfb_framebuffer;
 typedef struct sfb_light_source sfb_light_source;
 typedef struct sfb_pixel sfb_pixel;
+typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
+typedef struct sfb_thread_handle sfb_thread_handle;
 
 // Light source flags
 #define OBJ_LIGHT_SOURCE (1 << 2)
@@ -53,13 +55,18 @@ struct sfb_obj {
                                            float intensity, int flags);
 };
 
-// If the multithreaded flag is set, sfb_spawn_threads() will be called inside
-// the creation of the framebuffer
 struct sfb_framebuffer {
   int w, h;
   size_t size;
   uint32_t *data;
   int flags;
+
+  // dft zero
+  int cores;
+  // NULL if flag is not set
+  sfb_thread_ctx_renderer *thread_render_data;
+  sfb_thread_handle *thread_handles;
+
   // fns
   void (*clear)(sfb_framebuffer *const, uint32_t);
   void (*write_obj)(const sfb_obj *const, sfb_framebuffer *const,

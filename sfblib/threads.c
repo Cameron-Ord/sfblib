@@ -1,1 +1,142 @@
 #include "../include/sfb_threads.h"
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// CONTROL FLOW
+int sfb_get_cores(void) {
+#if POSIX
+  return sfb_get_cores_posix();
+#elif WINDOWS
+  // TODO: IMPLEMENT
+  return 0;
+#endif
+}
+
+void sfb_thread_signal(sfb_thread_ctx_renderer *ctx) {
+#if POSIX
+  sfb_thread_signal_posix(ctx);
+#elif WINDOWS
+  // TODO: IMPLEMENT
+#endif
+}
+
+sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *thread_handles,
+                                           const int cores) {
+#if POSIX
+  return sfb_spawn_threads_posix(thread_handles, cores);
+#elif WINDOWS
+  // TODO: IMPLEMENT
+  return NULL;
+#endif
+}
+
+// GENERIC ; PLATFORM AGNOSTIC
+sfb_thread_handle *sfb_thread_handle_allocate(const int cores) {
+  sfb_thread_handle *handles = calloc(cores, sizeof(sfb_thread_handle));
+  if (!handles) {
+    return NULL;
+  }
+  return handles;
+}
+
+sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores) {
+  sfb_thread_ctx_renderer *thread_ctxs =
+      calloc(cores, sizeof(sfb_thread_ctx_renderer));
+
+  if (!thread_ctxs) {
+    return NULL;
+  }
+
+  return thread_ctxs;
+}
+
+void sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle) {
+  ctx->active = 0;
+  pthread_join(handle->handle, NULL);
+  pthread_cond_destroy(&ctx->cond);
+  pthread_mutex_destroy(&ctx->mutex);
+}
+
+void sfb_free_ctxs(sfb_thread_ctx_renderer *ctxs) {
+  if (ctxs) {
+    free(ctxs);
+  }
+  ctxs = NULL;
+}
+
+void sfb_free_handles(sfb_thread_handle *handles) {
+  if (handles) {
+    free(handles);
+  }
+  handles = NULL;
+}
+
+// PLATFORM SPECIFIC CODE:
+#if POSIX
+#include <unistd.h>
+void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx) {
+  pthread_cond_signal(&ctx->cond);
+}
+
+void *sfb_posix_worker(void *arg) {
+  sfb_thread_ctx_renderer *ctx = (sfb_thread_ctx_renderer *)arg;
+  while (ctx->active) {
+    pthread_mutex_lock(&ctx->mutex);
+    while (!ctx->work_scheduled && ctx->active) {
+      pthread_cond_wait(&ctx->cond, &ctx->mutex);
+    }
+
+    if (!ctx->active) {
+      pthread_mutex_unlock(&ctx->mutex);
+      break;
+    }
+
+    pthread_mutex_unlock(&ctx->mutex);
+  }
+  return NULL;
+}
+
+int sfb_get_cores_posix(void) {
+  long nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+  if (nprocs < 1) {
+    return 1;
+  }
+  return (int)nprocs;
+}
+
+sfb_thread_ctx_renderer *
+sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
+  sfb_thread_ctx_renderer *thread_ctxs = sfb_thread_ctx_allocate(cores);
+  if (!thread_ctxs) {
+    fprintf(stderr, "Could not allocate thread contexts! -> %s\n",
+            strerror(errno));
+    return NULL;
+  }
+
+  for (int i = 0; i < cores; i++) {
+    sfb_thread_ctx_renderer *ctx = &thread_ctxs[i];
+    ctx->work_scheduled = 0;
+    ctx->active = 1;
+    ctx->start = NULL, ctx->end = NULL;
+
+    pthread_mutex_init(&ctx->mutex, NULL);
+    pthread_cond_init(&ctx->cond, NULL);
+
+    pthread_t *handle = &thread_handles[i].handle;
+    int r = pthread_create(handle, NULL, sfb_posix_worker, ctx);
+    if (!r) {
+      fprintf(stderr, "Failed to create thread! ->%s\n", strerror(r));
+      sfb_free_ctxs(thread_ctxs);
+      return NULL;
+    }
+  }
+
+  return thread_ctxs;
+}
+
+#elif WINDOWS
+// TODO: IMPLEMENT
+#endif

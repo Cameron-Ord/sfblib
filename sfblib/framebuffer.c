@@ -1,5 +1,5 @@
 #include "../include/sfb_framebuffer.h"
-#include "../include/threads.h"
+#include "../include/sfb_threads.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -45,6 +45,7 @@ sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
     return NULL;
   }
 
+  fb_obj->cores = 0;
   fb_obj->flags = flags;
   fb_obj->w = width;
   fb_obj->h = height;
@@ -59,6 +60,11 @@ sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
   if (fb_obj->flags & GFX_ENABLE_MULTITHREADED) {
     // not impl
     // sfb_spawn_threads()
+    //
+    fb_obj->cores = sfb_get_cores();
+    fb_obj->thread_handles = sfb_thread_handle_allocate(fb_obj->cores);
+    fb_obj->thread_render_data =
+        sfb_spawn_threads(fb_obj->thread_handles, fb_obj->cores);
   }
 
   return fb_obj;
