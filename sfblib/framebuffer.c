@@ -15,8 +15,24 @@ void sfb_free_obj(sfb_obj *o) {
 }
 
 void sfb_free_framebuffer(sfb_framebuffer *f) {
-  if (f && f->data) {
-    free(f->data);
+  if (f) {
+
+    if (f->flags & SFB_ENABLE_MULTITHREADED) {
+      fprintf(stdout, "Killing threads..\n");
+      for (int i = 0; i < f->cores; i++) {
+        sfb_thread_ctx_renderer *ctx = &f->thread_render_data[i];
+        sfb_thread_handle *handle = &f->thread_handles[i];
+        sfb_kill_thread(ctx, handle);
+      }
+      sfb_free_ctxs(f->thread_render_data);
+      sfb_free_handles(f->thread_handles);
+      fprintf(stdout, "..Done\n");
+    }
+
+    if (f->data) {
+      free(f->data);
+    }
+
     free(f);
   }
   f = NULL;
@@ -57,36 +73,41 @@ sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
   fb_obj->write_rect = sfb_write_rect_generic;
   fb_obj->write_circle = sfb_write_circle_generic;
 
-  if (fb_obj->flags & GFX_ENABLE_MULTITHREADED) {
-    // not impl
-    // sfb_spawn_threads()
-    //
+  if (fb_obj->flags & SFB_ENABLE_MULTITHREADED) {
     fb_obj->cores = sfb_get_cores();
     fb_obj->thread_handles = sfb_thread_handle_allocate(fb_obj->cores);
-    fb_obj->thread_render_data =
-        sfb_spawn_threads(fb_obj->thread_handles, fb_obj->cores);
+
+    if (fb_obj->thread_handles) {
+      fb_obj->thread_render_data =
+          sfb_spawn_threads(fb_obj->thread_handles, fb_obj->cores);
+    }
+
+    if (!fb_obj->thread_render_data) {
+      sfb_free_handles(fb_obj->thread_handles);
+      fb_obj->flags &= SFB_ENABLE_MULTITHREADED;
+    }
   }
 
   return fb_obj;
 }
 
 void sfb_remove_light_source(sfb_obj *const obj, sfb_light_source *light) {
-  if ((obj && obj->flags & OBJ_LIGHT_SOURCE)) {
-    obj->flags &= ~OBJ_LIGHT_SOURCE;
+  if ((obj && obj->flags & SFB_LIGHT_SOURCE)) {
+    obj->flags &= ~SFB_LIGHT_SOURCE;
     sfb_free_light_source(light);
   }
 }
 
 void sfb_assign_light(sfb_obj *const obj, sfb_light_source *light) {
-  if ((obj && !(obj->flags & OBJ_LIGHT_SOURCE)) && light) {
+  if ((obj && !(obj->flags & SFB_LIGHT_SOURCE)) && light) {
     obj->light = light;
-    obj->flags |= OBJ_LIGHT_SOURCE;
+    obj->flags |= SFB_LIGHT_SOURCE;
   }
 }
 
 sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, int radius,
                                           float intensity, int flags) {
-  if (obj && !(obj->flags & OBJ_LIGHT_SOURCE)) {
+  if (obj && !(obj->flags & SFB_LIGHT_SOURCE)) {
     sfb_light_source *light = malloc(sizeof(sfb_light_source));
     if (!light) {
       fprintf(stderr, "Could not create light source (calloc())-> %s\n",
@@ -104,7 +125,7 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, int radius,
 
   if (!obj) {
     fprintf(stderr, "Could not create light source-> Passed a NULL pointer \n");
-  } else if (!(obj->flags & OBJ_LIGHT_SOURCE)) {
+  } else if (!(obj->flags & SFB_LIGHT_SOURCE)) {
     fprintf(stderr,
             "Could not create light source-> Object is not a light source\n");
   }

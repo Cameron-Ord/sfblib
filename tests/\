@@ -79,37 +79,31 @@ void sfb_free_handles(sfb_thread_handle *handles) {
 static void sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
 
 void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx) {
-  if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
-    pthread_cond_signal(&ctx->cond);
-    pthread_mutex_unlock(&ctx->mutex);
-  }
+  pthread_mutex_lock(&ctx->mutex);
+  pthread_cond_signal(&ctx->cond);
+  pthread_mutex_unlock(&ctx->mutex);
 }
 
 static void sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx) {
-  if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
-    ctx->active = 0;
-    pthread_mutex_unlock(&ctx->mutex);
-  }
+  pthread_mutex_lock(&ctx->mutex);
+  ctx->active = 0;
+  pthread_mutex_unlock(&ctx->mutex);
 }
 
 void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                            sfb_thread_handle *handle) {
-  if ((ctx && ctx->valid) && handle) {
-    sfb_thread_stop_flag_posix(ctx);
-    sfb_thread_signal_posix(ctx);
+  sfb_thread_stop_flag_posix(ctx);
+  sfb_thread_signal_posix(ctx);
 
-    const int retval = pthread_join(handle->handle, NULL);
-    if (retval != 0) {
-      fprintf(stderr, "Failed to join thread! -> %s\n", strerror(retval));
-    }
-
-    pthread_cond_destroy(&ctx->cond);
-    pthread_mutex_destroy(&ctx->mutex);
-
-    fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
+  const int retval = pthread_join(handle->handle, NULL);
+  if (retval != 0) {
+    fprintf(stderr, "Failed to join thread! -> %s\n", strerror(retval));
   }
+
+  pthread_cond_destroy(&ctx->cond);
+  pthread_mutex_destroy(&ctx->mutex);
+
+  fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
 }
 
 void *sfb_posix_worker(void *arg) {
@@ -149,7 +143,6 @@ sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
 
   for (int i = 0; i < cores; i++) {
     sfb_thread_ctx_renderer *ctx = &thread_ctxs[i];
-    ctx->valid = 1;
     ctx->work_scheduled = 0;
     ctx->active = 1;
     ctx->start = NULL, ctx->end = NULL;

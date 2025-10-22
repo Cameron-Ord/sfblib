@@ -35,10 +35,13 @@ struct sfb_thread_ctx_renderer {
   pthread_mutex_t mutex;
   int work_scheduled;
   int active;
+  int valid;
   uint32_t *start;
   uint32_t *end;
 };
 
+void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
+                           sfb_thread_handle *handle);
 void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_get_cores_posix(void);
 sfb_thread_ctx_renderer *

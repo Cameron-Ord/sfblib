@@ -13,10 +13,10 @@ typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
 typedef struct sfb_thread_handle sfb_thread_handle;
 
 // Light source flags
-#define OBJ_LIGHT_SOURCE (1 << 2)
+#define SFB_LIGHT_SOURCE (1 << 2)
 // Framebuffer flags
-#define GFX_BLEND_ENABLED (1 << 3)
-#define GFX_ENABLE_MULTITHREADED (1 << 1)
+#define SFB_BLEND_ENABLED (1 << 3)
+#define SFB_ENABLE_MULTITHREADED (1 << 1)
 
 // Just using an array of uint32_t works for now but if I want to have actual
 // lighting logic and just in general, have good conditional logic, then it will

@@ -15,6 +15,7 @@
 #include "sfb_framebuffer.h"
 #include "sfb_rgba.h"
 #include "sfb_scale.h"
+#include "sfb_threads.h"
 
 #include <errno.h>
 #include <stdio.h>
