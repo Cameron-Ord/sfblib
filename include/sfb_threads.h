@@ -1,9 +1,29 @@
 #ifndef SFB_THREADS_H
 #define SFB_THREADS_H
 #include <stdint.h>
+#define SFB_THREAD_QUEUE_MAX 128
+
+typedef struct sfb_thread_job sfb_thread_job;
+typedef struct sfb_framebuffer sfb_framebuffer;
+typedef struct sfb_obj sfb_obj;
+
+struct sfb_thread_job {
+  int done, dequeued;
+  int rows, start;
+  sfb_framebuffer *buffer;
+  const sfb_obj *obj;
+  int y0, x0;
+};
+
 typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
 typedef struct sfb_thread_handle sfb_thread_handle;
 
+void sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
+void sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
+void sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int rows, int start,
+                         sfb_framebuffer *buf, const sfb_obj *const obj, int y0,
+                         int x0);
 sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores);
 sfb_thread_handle *sfb_thread_handle_allocate(const int cores);
 int sfb_get_cores(void);
@@ -33,13 +53,19 @@ struct sfb_thread_handle {
 struct sfb_thread_ctx_renderer {
   pthread_cond_t cond;
   pthread_mutex_t mutex;
-  int work_scheduled;
   int active;
   int valid;
-  uint32_t *start;
-  uint32_t *end;
+  int queued;
+  int working;
+  sfb_thread_job queue[SFB_THREAD_QUEUE_MAX];
 };
 
+void sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx);
+void sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx);
+void sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
+                               int start, sfb_framebuffer *buf,
+                               const sfb_obj *const obj, int y0, int x0);
 void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                            sfb_thread_handle *handle);
 void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);

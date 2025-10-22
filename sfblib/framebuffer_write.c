@@ -1,6 +1,8 @@
 #include "../include/sfb_camera.h"
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_rgba.h"
+#include "../include/sfb_threads.h"
+#include <stdio.h>
 
 inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
   if (!buffer) {
@@ -31,18 +33,41 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
   } break;
   }
 
-  for (int dy = 0; dy < obj->h; dy++) {
-    const int y = y0 + dy;
-    if (y < 0 || (y >= buffer->h || y >= obj->h))
-      continue;
+  if (buffer->flags & SFB_ENABLE_MULTITHREADED) {
+    const int rpt = obj->h / buffer->cores;
+    int remainder = obj->h % buffer->cores;
+    int start = 0;
+    for (int i = 0; i < buffer->cores; i++) {
+      int rows = rpt;
+      if (remainder > 0) {
+        rows += remainder;
+        remainder = 0;
+      }
 
-    for (int dx = 0; dx < obj->w; dx++) {
-      const int x = x0 + dx;
-      if (x < 0 || (x >= buffer->w || x >= obj->w))
+      sfb_thread_dequeue(&buffer->thread_render_data[i]);
+      if (!sfb_thread_queue_job(&buffer->thread_render_data[i], rows, start,
+                                buffer, obj, y0, x0)) {
+        fprintf(stderr, "Could not queue job!\n");
+      }
+      sfb_resume_thread(&buffer->thread_render_data[i]);
+      sfb_thread_signal(&buffer->thread_render_data[i]);
+      start += rows;
+    }
+
+  } else {
+    for (int dy = 0; dy < obj->h; dy++) {
+      const int y = y0 + dy;
+      if (y < 0 || (y >= buffer->h || dy >= obj->h))
         continue;
 
-      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
-                    obj->pixels[dy * obj->w + dx], buffer->flags);
+      for (int dx = 0; dx < obj->w; dx++) {
+        const int x = x0 + dx;
+        if (x < 0 || (x >= buffer->w || dx >= obj->w))
+          continue;
+
+        sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
+                      obj->pixels[dy * obj->w + dx], buffer->flags);
+      }
     }
   }
 }
