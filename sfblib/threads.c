@@ -207,15 +207,16 @@ void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
 
 void *sfb_posix_worker(void *arg) {
   sfb_thread_ctx_renderer *ctx = (sfb_thread_ctx_renderer *)arg;
-  pthread_mutex_lock(&ctx->mutex);
   while (ctx->active) {
+    pthread_mutex_lock(&ctx->mutex);
     while (!ctx->working && ctx->active) {
       pthread_cond_wait(&ctx->cond, &ctx->mutex);
     }
 
     int queued = ctx->queued;
+    sfb_thread_job *jobs = ctx->queue;
     for (int i = 0; i < queued; i++) {
-      sfb_thread_job *job = &ctx->queue[i];
+      sfb_thread_job *job = &jobs[i];
       if (job->done) {
         continue;
       }
@@ -244,8 +245,8 @@ void *sfb_posix_worker(void *arg) {
     if (!ctx->active) {
       break;
     }
+    pthread_mutex_unlock(&ctx->mutex);
   }
-  pthread_mutex_unlock(&ctx->mutex);
   return NULL;
 }
 
