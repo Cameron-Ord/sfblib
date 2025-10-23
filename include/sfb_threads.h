@@ -1,7 +1,7 @@
 #ifndef SFB_THREADS_H
 #define SFB_THREADS_H
 #include <stdint.h>
-#define SFB_THREAD_QUEUE_MAX 128
+#define SFB_THREAD_QUEUE_MAX 64
 
 typedef struct sfb_thread_job sfb_thread_job;
 typedef struct sfb_framebuffer sfb_framebuffer;

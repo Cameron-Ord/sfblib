@@ -1,6 +1,7 @@
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_threads.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,18 +112,34 @@ void sfb_free_handles(sfb_thread_handle *handles) {
 
 static void sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx);
+static void sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx);
 
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx) {
   pthread_mutex_lock(&ctx->mutex);
   int j = -1;
+  sfb_thread_job *queue = ctx->queue;
   for (int i = 0; i < SFB_THREAD_QUEUE_MAX; i++) {
-    if (ctx->queue[i].done) {
+    if (queue[i].done) {
       j = i;
       break;
     }
   }
   pthread_mutex_unlock(&ctx->mutex);
   return j;
+}
+
+static void sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx) {
+  sfb_thread_job *queue = ctx->queue;
+  int dst = 0;
+  for (int src = 0; src < SFB_THREAD_QUEUE_MAX && dst < SFB_THREAD_QUEUE_MAX;
+       src++) {
+    if (!(queue[src].done && queue[src].dequeued) && src != dst) {
+      sfb_thread_job unfinished_job = queue[src];
+      sfb_thread_job finished_job = queue[dst];
+      queue[dst++] = unfinished_job;
+      queue[src] = finished_job;
+    }
+  }
 }
 
 void sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
@@ -145,8 +162,9 @@ int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
       return 0;
     }
 
-    sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
     pthread_mutex_lock(&ctx->mutex);
+    sfb_thread_queue_restack(ctx);
+    sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
     ctx->queue[queue_pos] = tmp;
     ctx->queued++;
     pthread_mutex_unlock(&ctx->mutex);
@@ -206,6 +224,9 @@ void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
 }
 
 void *sfb_posix_worker(void *arg) {
+  if (!arg) {
+    return NULL;
+  }
   sfb_thread_ctx_renderer *ctx = (sfb_thread_ctx_renderer *)arg;
   while (ctx->active) {
     pthread_mutex_lock(&ctx->mutex);
@@ -216,7 +237,7 @@ void *sfb_posix_worker(void *arg) {
     int queued = ctx->queued;
     sfb_thread_job *jobs = ctx->queue;
     for (int i = 0; i < queued; i++) {
-      sfb_thread_job *job = &jobs[i];
+      sfb_thread_job *job = &jobs[i % SFB_THREAD_QUEUE_MAX];
       if (job->done) {
         continue;
       }
@@ -241,8 +262,10 @@ void *sfb_posix_worker(void *arg) {
       }
       job->done = 1;
     }
+
     ctx->working = 0;
     if (!ctx->active) {
+      pthread_mutex_unlock(&ctx->mutex);
       break;
     }
     pthread_mutex_unlock(&ctx->mutex);

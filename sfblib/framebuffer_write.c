@@ -34,24 +34,33 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
   }
 
   if (buffer->flags & SFB_ENABLE_MULTITHREADED) {
-    const int rpt = obj->h / buffer->cores;
-    int remainder = obj->h % buffer->cores;
-    int start = 0;
-    for (int i = 0; i < buffer->cores; i++) {
-      int rows = rpt;
-      if (remainder > 0) {
-        rows += remainder;
-        remainder = 0;
+    const int rows_per_queue = obj->h / buffer->cores;
+    const int rows = obj->h;
+    const int const_r = obj->h % buffer->cores;
+    int start = 0, i = 0, r = 0;
+
+    while (i < rows) {
+      const int thread = i % buffer->cores;
+      sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
+      sfb_thread_ctx_renderer *d = &threads[thread];
+      sfb_thread_dequeue(d);
+
+      while (r < const_r) {
+        const int rthread = r % buffer->cores;
+        sfb_thread_ctx_renderer *rd = &threads[rthread];
+        sfb_thread_queue_job(rd, r - (r - 1), start, buffer, obj, y0, x0);
+        r++;
+        start = start + (r - (r - 1));
       }
 
-      sfb_thread_dequeue(&buffer->thread_render_data[i]);
-      if (!sfb_thread_queue_job(&buffer->thread_render_data[i], rows, start,
-                                buffer, obj, y0, x0)) {
-        fprintf(stderr, "Could not queue job!\n");
-      }
+      sfb_thread_queue_job(d, rows_per_queue, start, buffer, obj, y0, x0);
+      i++;
+      start = start + rows_per_queue;
+    }
+
+    for (int i = 0; i < buffer->cores; i++) {
       sfb_resume_thread(&buffer->thread_render_data[i]);
       sfb_thread_signal(&buffer->thread_render_data[i]);
-      start += rows;
     }
 
   } else {
