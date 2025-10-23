@@ -74,7 +74,6 @@ int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int rows, int start,
 }
 
 // GENERIC ; PLATFORM AGNOSTIC
-
 sfb_thread_handle *sfb_thread_handle_allocate(const int cores) {
   sfb_thread_handle *handles = calloc(cores, sizeof(sfb_thread_handle));
   if (!handles) {
@@ -150,6 +149,7 @@ void sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
       ctx->queued--;
     }
   }
+  sfb_thread_queue_restack(ctx);
   pthread_mutex_unlock(&ctx->mutex);
 }
 
@@ -163,7 +163,6 @@ int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
     }
 
     pthread_mutex_lock(&ctx->mutex);
-    sfb_thread_queue_restack(ctx);
     sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
     ctx->queue[queue_pos] = tmp;
     ctx->queued++;
@@ -234,10 +233,11 @@ void *sfb_posix_worker(void *arg) {
       pthread_cond_wait(&ctx->cond, &ctx->mutex);
     }
 
-    int queued = ctx->queued;
+    int process = (ctx->queued < SFB_THREAD_QUEUE_MAX) ? ctx->queued
+                                                       : SFB_THREAD_QUEUE_MAX;
     sfb_thread_job *jobs = ctx->queue;
-    for (int i = 0; i < queued; i++) {
-      sfb_thread_job *job = &jobs[i % SFB_THREAD_QUEUE_MAX];
+    for (int i = 0; i < process; i++) {
+      sfb_thread_job *job = &jobs[i];
       if (job->done) {
         continue;
       }

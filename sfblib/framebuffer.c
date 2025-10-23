@@ -1,3 +1,4 @@
+#include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_threads.h"
 
@@ -40,6 +41,9 @@ void sfb_free_framebuffer(sfb_framebuffer *f) {
 
 void sfb_free_light_source(sfb_light_source *light) {
   if (light) {
+    if (light->lightmap) {
+      free(light->lightmap);
+    }
     free(light);
   }
   light = NULL;
