@@ -105,8 +105,9 @@ void sfb_assign_light(sfb_obj *const obj, sfb_light_source *light) {
   }
 }
 
-sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, int radius,
-                                          float intensity, int flags) {
+sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, float size,
+                                          float intensity, float range,
+                                          uint32_t colour, int flags) {
   if (obj && !(obj->flags & SFB_LIGHT_SOURCE)) {
     sfb_light_source *light = malloc(sizeof(sfb_light_source));
     if (!light) {
@@ -116,9 +117,26 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, int radius,
     }
 
     light->flags = flags;
-    light->intensity = intensity;
     light->mat = &obj->mat;
-    light->radius = radius;
+    light->colour = colour;
+    light->range = range;
+    light->size = size;
+
+    light->w = obj->w * light->size;
+    light->h = obj->h * light->size;
+
+    light->lightmap = malloc(light->w * light->h * sizeof(uint32_t));
+    if (!light->lightmap) {
+      fprintf(stderr, "Could not create light map (malloc())-> %s\n",
+              strerror(errno));
+      sfb_free_light_source(light);
+      return NULL;
+    }
+
+    const uint32_t *end = light->lightmap + (light->w * light->h);
+    for (uint32_t *p = light->lightmap; p < end && p != end; p++) {
+      *p = colour;
+    }
 
     return light;
   }

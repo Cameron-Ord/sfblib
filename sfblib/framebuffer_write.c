@@ -1,4 +1,5 @@
 #include "../include/sfb_camera.h"
+#include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
@@ -75,7 +76,7 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
           continue;
 
         sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
-                      obj->pixels[dy * obj->w + dx], buffer->flags);
+                      obj->pixels[dy * obj->w + dx], buffer->flags, 1.0f);
       }
     }
   }
@@ -97,7 +98,7 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
         continue;
 
       sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour,
-                    buffer->flags);
+                    buffer->flags, 1.0f);
     }
   }
 }
@@ -125,24 +126,49 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
       const int dy = y - yc;
       if (dx * dx + dy * dy <= radius * radius) {
         sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour,
-                      buffer->flags);
+                      buffer->flags, 1.0f);
       }
     }
   }
 }
 
+// None of the lighting flags are actually implemented yet
 void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour, int flag) {
+                   const int h, uint32_t colour, int pixflag, float intensity) {
   if (!buf) {
     return;
   }
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
-    if (flag & SFB_BLEND_ENABLED) {
-      buf[l] = sfb_blend_pixel(buf[l], colour);
+    if (pixflag & SFB_LIGHT_SOURCE && pixflag & SFB_LIGHT_ADDITIVE &&
+        pixflag & SFB_LIGHT_INTENSITY_DIFFUSED) {
+      if (pixflag & SFB_BLEND_ENABLED) {
+        uint32_t diffused =
+            sfb_col_exposure(sfb_col_additive(buf[l], colour), intensity);
+        buf[l] = sfb_blend_pixel(buf[l], diffused);
+      } else {
+        buf[l] = sfb_col_exposure(sfb_col_additive(buf[l], colour), intensity);
+      }
+    } else if (pixflag & SFB_LIGHT_SOURCE && pixflag & SFB_LIGHT_ADDITIVE) {
+      if (pixflag & SFB_BLEND_ENABLED) {
+        buf[l] = sfb_blend_pixel(buf[l], sfb_col_additive(buf[l], colour));
+      } else {
+        buf[l] = sfb_col_additive(buf[l], colour);
+      }
+    } else if (pixflag & SFB_LIGHT_SOURCE &&
+               pixflag & SFB_LIGHT_INTENSITY_DIFFUSED) {
+      if (pixflag & SFB_BLEND_ENABLED) {
+        buf[l] = sfb_blend_pixel(buf[l], sfb_col_exposure(colour, intensity));
+      } else {
+        buf[l] = sfb_col_exposure(colour, intensity);
+      }
     } else {
-      buf[l] = colour;
+      if (pixflag & SFB_BLEND_ENABLED) {
+        buf[l] = sfb_blend_pixel(buf[l], colour);
+      } else {
+        buf[l] = colour;
+      }
     }
   }
 }

@@ -3,6 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+const uint8_t CHANNEL_MAX = UINT8_MAX;
+
+static uint8_t sfb_channel_clamp(uint8_t c) {
+  if (c != 0) {
+    return c / CHANNEL_MAX;
+  }
+  return c;
+}
 
 uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
   const uint32_t rgba = (argb << 8) | (argb >> 24);
@@ -111,18 +119,26 @@ uint32_t sfb_blend_pixel(uint32_t dstp, uint32_t srcp) {
   uint8_t b2 = srcp & 0xFF;
 
   uint8_t a3 = sfb_mix_alpha(a1, a2);
-  uint8_t r3 = sfb_mix_col(r1, r2, a2);
-  uint8_t g3 = sfb_mix_col(g1, g2, a2);
-  uint8_t b3 = sfb_mix_col(b1, b2, a2);
+  uint8_t r3 = sfb_col_blended(r1, r2, a2);
+  uint8_t g3 = sfb_col_blended(g1, g2, a2);
+  uint8_t b3 = sfb_col_blended(b1, b2, a2);
 
   return (a3 << 24) | (r3 << 16) | (g3 << 8) | b3;
 }
 
 uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src) {
-  return src + (dst * (255 - src)) / 255;
+  return src + (dst * (CHANNEL_MAX - src)) / CHANNEL_MAX;
 }
 
-uint8_t sfb_mix_col(uint8_t dst, uint8_t src, uint8_t a) {
-  const uint8_t blended = (src * a + dst * (255 - a)) / 255;
-  return (blended > 255) ? 255 : blended;
+uint8_t sfb_col_exposure(uint8_t col, float intensity) {
+  return sfb_channel_clamp(col * intensity);
+}
+
+uint8_t sfb_col_additive(uint8_t dst, uint8_t src) {
+  return sfb_channel_clamp(src + dst);
+}
+
+uint8_t sfb_col_blended(uint8_t dst, uint8_t src, uint8_t a) {
+  const uint8_t blended = (src * a + dst * (CHANNEL_MAX - a)) / CHANNEL_MAX;
+  return (blended > CHANNEL_MAX) ? CHANNEL_MAX : blended;
 }

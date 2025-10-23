@@ -257,7 +257,7 @@ void *sfb_posix_worker(void *arg) {
 
           sfb_put_pixel(x, y, job->buffer->data, job->buffer->w, job->buffer->h,
                         job->obj->pixels[rdy * job->obj->w + dx],
-                        job->buffer->flags);
+                        job->buffer->flags, 1.0f);
         }
       }
       job->done = 1;
