@@ -74,7 +74,7 @@ int sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_get_cores_posix(void);
 sfb_thread_ctx_renderer *
 sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, int cores);
-void *sfb_posix_worker(void *arg);
+void *sfb_thread_posix_worker(void *arg);
 
 // TODO: not impl
 #elif defined(_WIN32) || defined(_WIN64)

@@ -124,6 +124,78 @@ static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int rows,
                                 int start, sfb_framebuffer *buf,
                                 const sfb_obj *const obj, int y0, int x0,
                                 int pos);
+static int sfb_thread_cond_signal(pthread_cond_t *c);
+static int sfb_thread_join(pthread_t *handle);
+static int sfb_thread_destroy_mutex(pthread_mutex_t *m);
+static int sfb_thread_destroy_cond(pthread_cond_t *m);
+static int sfb_thread_mutex_init(pthread_mutex_t *m);
+static int sfb_thread_cond_init(pthread_cond_t *c);
+static int sfb_thread_create(pthread_t *handle, void *(*routine)(void *),
+                             void *arg);
+
+static int sfb_thread_create(pthread_t *handle, void *(*routine)(void *),
+                             void *arg) {
+  int retval = 0;
+  if ((retval = pthread_create(handle, NULL, routine, arg)) != 0) {
+    fprintf(stderr, "Failed to create thread ->%s\n", strerror(errno));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_mutex_init(pthread_mutex_t *m) {
+  int retval = 0;
+  if ((retval = pthread_mutex_init(m, NULL)) != 0) {
+    fprintf(stderr, "Failed to init  pthread_mutex_t -> %s\n", strerror(errno));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_cond_init(pthread_cond_t *c) {
+  int retval = 0;
+  if ((retval = pthread_cond_init(c, NULL)) != 0) {
+    fprintf(stderr, "Failed to init pthread_cond_t -> %s\n", strerror(errno));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_destroy_cond(pthread_cond_t *c) {
+  int retval = 0;
+  if ((retval = pthread_cond_destroy(c)) != 0) {
+    fprintf(stderr, "Failed to destroy pthread_cond_t -> %s\n",
+            strerror(retval));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_destroy_mutex(pthread_mutex_t *m) {
+  int retval = 0;
+  if ((retval = pthread_mutex_destroy(m)) != 0) {
+    fprintf(stderr, "Failed to destroy pthread_mutex_t -> %s\n",
+            strerror(retval));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_join(pthread_t *handle) {
+  int retval = 0;
+  if ((retval = pthread_join(*handle, NULL)) != 0) {
+    fprintf(stderr, "Failed to join thread -> %s\n", strerror(retval));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_cond_signal(pthread_cond_t *c) {
+  if (pthread_cond_signal(c) != 0) {
+    return 0;
+  }
+  return 1;
+}
 
 static int sfb_thread_mutex_lock(pthread_mutex_t *m) {
   const int r = pthread_mutex_lock(m);
@@ -218,12 +290,14 @@ int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
                                int start, sfb_framebuffer *buf,
                                const sfb_obj *const obj, int y0, int x0) {
   if (ctx && buf && obj) {
-    const int queue_pos = sfb_thread_queue_seek(ctx);
-    if (queue_pos < 0) {
+    int queue_pos = -1;
+    if ((queue_pos = sfb_thread_queue_seek(ctx)) < 0) {
       return 0;
     }
 
-    sfb_thread_queue_add(ctx, rows, start, buf, obj, y0, x0, queue_pos);
+    if (!sfb_thread_queue_add(ctx, rows, start, buf, obj, y0, x0, queue_pos)) {
+      return 0;
+    }
     return 1;
   }
   return 0;
@@ -235,7 +309,9 @@ int sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx) {
       return 0;
     }
 
-    pthread_cond_signal(&ctx->cond);
+    if (!sfb_thread_cond_signal(&ctx->cond)) {
+      return 0;
+    }
 
     if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
       return 0;
@@ -290,24 +366,33 @@ int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx) {
 int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                           sfb_thread_handle *handle) {
   if ((ctx && ctx->valid) && handle) {
-    sfb_thread_stop_flag_posix(ctx);
-    sfb_thread_signal_posix(ctx);
-
-    const int retval = pthread_join(handle->handle, NULL);
-    if (retval != 0) {
-      fprintf(stderr, "Failed to join thread! -> %s\n", strerror(retval));
+    ctx->valid = 0;
+    if (!sfb_thread_stop_flag_posix(ctx)) {
+      return 0;
     }
 
-    pthread_cond_destroy(&ctx->cond);
-    pthread_mutex_destroy(&ctx->mutex);
+    if (!sfb_thread_signal_posix(ctx)) {
+      return 0;
+    }
 
+    if (!sfb_thread_join(&handle->handle)) {
+      return 0;
+    }
+
+    if (!sfb_thread_destroy_cond(&ctx->cond)) {
+      return 0;
+    }
+
+    if (!sfb_thread_destroy_mutex(&ctx->mutex)) {
+      return 0;
+    }
     fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
     return 1;
   }
   return 0;
 }
 
-void *sfb_posix_worker(void *arg) {
+void *sfb_thread_posix_worker(void *arg) {
   if (!arg) {
     return NULL;
   }
@@ -402,14 +487,20 @@ sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
       ctx->queue[j].x0 = 0;
     }
 
-    pthread_mutex_init(&ctx->mutex, NULL);
-    pthread_cond_init(&ctx->cond, NULL);
+    if (!sfb_thread_mutex_init(&ctx->mutex)) {
+      ctx->valid = 0;
+      return thread_ctxs;
+    }
+
+    if (!sfb_thread_cond_init(&ctx->cond)) {
+      ctx->valid = 0;
+      return thread_ctxs;
+    }
 
     pthread_t *handle = &thread_handles[i].handle;
-    int r = pthread_create(handle, NULL, sfb_posix_worker, ctx);
-    if (r != 0) {
-      fprintf(stderr, "Failed to create thread! ->%s\n", strerror(r));
+    if (!sfb_thread_create(handle, sfb_thread_posix_worker, ctx)) {
       ctx->valid = 0;
+      return thread_ctxs;
     }
   }
 
