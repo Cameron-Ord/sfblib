@@ -96,6 +96,13 @@ sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores) {
   if (!thread_ctxs) {
     return NULL;
   }
+
+  for (int j = 0; j < cores; j++) {
+    for (int i = 0; i < SFB_THREAD_QUEUE_MAX; i++) {
+      thread_ctxs[j].jptrs[i] = &thread_ctxs[j].queue[i];
+    }
+  }
+
   return thread_ctxs;
 }
 
@@ -253,16 +260,16 @@ int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx) {
   if (!sfb_thread_mutex_lock(&ctx->mutex)) {
     return 0;
   }
-  sfb_thread_job *queue = ctx->queue;
+  sfb_thread_job **queue = ctx->jptrs;
   int dst = 0;
   for (int src = 0; src < SFB_THREAD_QUEUE_MAX && dst < SFB_THREAD_QUEUE_MAX;
        src++) {
-    if (!(queue[src].done && queue[src].dequeued) && src != dst) {
-      sfb_thread_job unfinished_job = queue[src];
-      sfb_thread_job finished_job = queue[dst];
-      queue[dst++] = unfinished_job;
-      queue[src] = finished_job;
+    if (!queue[src]->done && src != dst) {
+      sfb_thread_job *tmp = queue[dst];
+      queue[dst] = queue[src];
+      queue[src] = tmp;
     }
+    dst++;
   }
   if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
     return 0;
@@ -409,9 +416,8 @@ void *sfb_thread_posix_worker(void *arg) {
 
     int process = (ctx->queued < SFB_THREAD_QUEUE_MAX) ? ctx->queued
                                                        : SFB_THREAD_QUEUE_MAX;
-    sfb_thread_job *jobs = ctx->queue;
     for (int i = 0; i < process; i++) {
-      sfb_thread_job *job = &jobs[i];
+      sfb_thread_job *job = &ctx->queue[i];
       if (job->done) {
         continue;
       }
