@@ -3,7 +3,6 @@
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
-#include <stdio.h>
 
 inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
   if (!buffer) {
@@ -45,6 +44,7 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
       sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
       sfb_thread_ctx_renderer *d = &threads[thread];
       sfb_thread_dequeue(d);
+      sfb_thread_queue_restack(d);
 
       while (r < const_r) {
         const int rthread = r % buffer->cores;

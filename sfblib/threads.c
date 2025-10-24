@@ -17,6 +17,14 @@ int sfb_get_cores(void) {
 #endif
 }
 
+int sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx) {
+#if POSIX
+  return sfb_thread_queue_restack_posix(ctx);
+#elif WINDOWS
+  return 0;
+#endif
+}
+
 void sfb_pause_thread(sfb_thread_ctx_renderer *ctx) {
 #if POSIX
   sfb_pause_thread_posix(ctx);
@@ -108,13 +116,53 @@ void sfb_free_handles(sfb_thread_handle *handles) {
 // PLATFORM SPECIFIC CODE:
 #if POSIX
 #include <unistd.h>
-
-static void sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
+static int sfb_thread_mutex_lock(pthread_mutex_t *m);
+static int sfb_thread_mutex_unlock(pthread_mutex_t *m);
+static int sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx);
-static void sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx);
+static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int rows,
+                                int start, sfb_framebuffer *buf,
+                                const sfb_obj *const obj, int y0, int x0,
+                                int pos);
+
+static int sfb_thread_mutex_lock(pthread_mutex_t *m) {
+  const int r = pthread_mutex_lock(m);
+  if (r != 0) {
+    fprintf(stderr, "Failed to acquire mutex lock!-> %s\n", strerror(r));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_mutex_unlock(pthread_mutex_t *m) {
+  const int r = pthread_mutex_unlock(m);
+  if (r != 0) {
+    fprintf(stderr, "Failed to unlock mutex -> %s\n", strerror(r));
+    return 0;
+  }
+  return 1;
+}
+
+static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int rows,
+                                int start, sfb_framebuffer *buf,
+                                const sfb_obj *const obj, int y0, int x0,
+                                int pos) {
+  if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+    return 0;
+  }
+  sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
+  ctx->queue[pos] = tmp;
+  ctx->queued++;
+  if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+    return 0;
+  }
+  return 1;
+}
 
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx) {
-  pthread_mutex_lock(&ctx->mutex);
+  if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+    return 0;
+  }
   int j = -1;
   sfb_thread_job *queue = ctx->queue;
   for (int i = 0; i < SFB_THREAD_QUEUE_MAX; i++) {
@@ -123,11 +171,16 @@ static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx) {
       break;
     }
   }
-  pthread_mutex_unlock(&ctx->mutex);
+  if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+    return 0;
+  }
   return j;
 }
 
-static void sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx) {
+int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx) {
+  if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+    return 0;
+  }
   sfb_thread_job *queue = ctx->queue;
   int dst = 0;
   for (int src = 0; src < SFB_THREAD_QUEUE_MAX && dst < SFB_THREAD_QUEUE_MAX;
@@ -139,18 +192,26 @@ static void sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx) {
       queue[src] = finished_job;
     }
   }
+  if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+    return 0;
+  }
+  return 1;
 }
 
-void sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
-  pthread_mutex_lock(&ctx->mutex);
+int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
+  if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+    return 0;
+  }
   for (int i = 0; i < SFB_THREAD_QUEUE_MAX; i++) {
     if (ctx->queue[i].done && !ctx->queue[i].dequeued) {
       ctx->queue[i].dequeued = 1;
       ctx->queued--;
     }
   }
-  sfb_thread_queue_restack(ctx);
-  pthread_mutex_unlock(&ctx->mutex);
+  if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+    return 0;
+  }
+  return 1;
 }
 
 int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
@@ -162,50 +223,72 @@ int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
       return 0;
     }
 
-    pthread_mutex_lock(&ctx->mutex);
-    sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
-    ctx->queue[queue_pos] = tmp;
-    ctx->queued++;
-    pthread_mutex_unlock(&ctx->mutex);
+    sfb_thread_queue_add(ctx, rows, start, buf, obj, y0, x0, queue_pos);
     return 1;
   }
   return 0;
 }
 
-void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx) {
+int sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx) {
   if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
+    if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      return 0;
+    }
+
     pthread_cond_signal(&ctx->cond);
-    pthread_mutex_unlock(&ctx->mutex);
+
+    if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      return 0;
+    }
+    return 1;
   }
+  return 0;
 }
 
-static void sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx) {
+static int sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx) {
   if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
+    if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      return 0;
+    }
     ctx->active = 0;
-    pthread_mutex_unlock(&ctx->mutex);
+    if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      return 0;
+    }
+    return 1;
   }
+  return 0;
 }
 
-void sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx) {
+int sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx) {
   if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
+    if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      return 0;
+    }
     ctx->working = 1;
-    pthread_mutex_unlock(&ctx->mutex);
+    if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      return 0;
+    }
+    return 1;
   }
+  return 0;
 }
 
-void sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx) {
+int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx) {
   if (ctx && ctx->valid) {
-    pthread_mutex_lock(&ctx->mutex);
+    if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      return 0;
+    }
     ctx->working = 0;
-    pthread_mutex_unlock(&ctx->mutex);
+    if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      return 0;
+    }
+    return 1;
   }
+  return 0;
 }
 
-void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
-                           sfb_thread_handle *handle) {
+int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
+                          sfb_thread_handle *handle) {
   if ((ctx && ctx->valid) && handle) {
     sfb_thread_stop_flag_posix(ctx);
     sfb_thread_signal_posix(ctx);
@@ -219,16 +302,22 @@ void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
     pthread_mutex_destroy(&ctx->mutex);
 
     fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
+    return 1;
   }
+  return 0;
 }
 
 void *sfb_posix_worker(void *arg) {
   if (!arg) {
     return NULL;
   }
+
   sfb_thread_ctx_renderer *ctx = (sfb_thread_ctx_renderer *)arg;
   while (ctx->active) {
-    pthread_mutex_lock(&ctx->mutex);
+    if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      return NULL;
+    }
+
     while (!ctx->working && ctx->active) {
       pthread_cond_wait(&ctx->cond, &ctx->mutex);
     }
@@ -265,10 +354,15 @@ void *sfb_posix_worker(void *arg) {
 
     ctx->working = 0;
     if (!ctx->active) {
-      pthread_mutex_unlock(&ctx->mutex);
+      if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+        return NULL;
+      }
       break;
     }
-    pthread_mutex_unlock(&ctx->mutex);
+
+    if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      return NULL;
+    }
   }
   return NULL;
 }

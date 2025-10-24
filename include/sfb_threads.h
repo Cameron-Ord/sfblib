@@ -18,6 +18,7 @@ struct sfb_thread_job {
 typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
 typedef struct sfb_thread_handle sfb_thread_handle;
 
+int sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx);
 void sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
 void sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
 void sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
@@ -60,15 +61,16 @@ struct sfb_thread_ctx_renderer {
   sfb_thread_job queue[SFB_THREAD_QUEUE_MAX];
 };
 
-void sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx);
-void sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx);
-void sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
                                int start, sfb_framebuffer *buf,
                                const sfb_obj *const obj, int y0, int x0);
-void sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
-                           sfb_thread_handle *handle);
-void sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);
+int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
+                          sfb_thread_handle *handle);
+int sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_get_cores_posix(void);
 sfb_thread_ctx_renderer *
 sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, int cores);
