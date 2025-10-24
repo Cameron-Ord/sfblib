@@ -308,6 +308,7 @@ int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
     pthread_cond_destroy(&ctx->cond);
     pthread_mutex_destroy(&ctx->mutex);
 
+    ctx->valid = 0;
     fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
     return 1;
   }

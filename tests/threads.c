@@ -16,7 +16,7 @@ int main(void) {
   sfb_fb_clear(buffer, 0xFFFFFFFF);
 
   int j = 0;
-  while (1) {
+  while (j < 10 * 10) {
     sfb_write_obj_rect(objs[j % SIZE], buffer, NULL);
     j++;
   }
