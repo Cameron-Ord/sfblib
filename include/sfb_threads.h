@@ -59,6 +59,7 @@ struct sfb_thread_ctx_renderer {
   int queued;
   int working;
   sfb_thread_job queue[SFB_THREAD_QUEUE_MAX];
+  sfb_thread_job *jptrs[SFB_THREAD_QUEUE_MAX];
 };
 
 int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx);
