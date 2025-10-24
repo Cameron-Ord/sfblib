@@ -25,39 +25,44 @@ int sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx) {
 #endif
 }
 
-void sfb_pause_thread(sfb_thread_ctx_renderer *ctx) {
+int sfb_pause_thread(sfb_thread_ctx_renderer *ctx) {
 #if POSIX
-  sfb_pause_thread_posix(ctx);
+  return sfb_pause_thread_posix(ctx);
 #elif WINDOWS
+  return 0;
 #endif
 }
 
-void sfb_resume_thread(sfb_thread_ctx_renderer *ctx) {
+int sfb_resume_thread(sfb_thread_ctx_renderer *ctx) {
 #if POSIX
-  sfb_resume_thread_posix(ctx);
+  return sfb_resume_thread_posix(ctx);
 #elif WINDOWS
+  return 0;
 #endif
 }
 
-void sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx) {
+int sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx) {
 #if POSIX
-  sfb_thread_dequeue_posix(ctx);
+  return sfb_thread_dequeue_posix(ctx);
 #elif WINDOWS
+  return 0;
 #endif
 }
 
-void sfb_thread_signal(sfb_thread_ctx_renderer *ctx) {
+int sfb_thread_signal(sfb_thread_ctx_renderer *ctx) {
 #if POSIX
-  sfb_thread_signal_posix(ctx);
+  return sfb_thread_signal_posix(ctx);
 #elif WINDOWS
   // TODO: IMPLEMENT
+  return 0;
 #endif
 }
 
-void sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle) {
+int sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle) {
 #if POSIX
-  sfb_kill_thread_posix(ctx, handle);
+  return sfb_kill_thread_posix(ctx, handle);
 #elif WINDOWS
+  return 0;
 #endif
 }
 
@@ -139,12 +144,23 @@ static int sfb_thread_mutex_init(pthread_mutex_t *m);
 static int sfb_thread_cond_init(pthread_cond_t *c);
 static int sfb_thread_create(pthread_t *handle, void *(*routine)(void *),
                              void *arg);
+static int sfb_thread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m);
+
+static int sfb_thread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m) {
+  int retval = 0;
+  if ((retval = pthread_cond_wait(c, m)) != 0) {
+    fprintf(stderr, "Thread failed to wait on pthread_cond_t -> %s\n",
+            strerror(retval));
+    return 0;
+  }
+  return 1;
+}
 
 static int sfb_thread_create(pthread_t *handle, void *(*routine)(void *),
                              void *arg) {
   int retval = 0;
   if ((retval = pthread_create(handle, NULL, routine, arg)) != 0) {
-    fprintf(stderr, "Failed to create thread ->%s\n", strerror(errno));
+    fprintf(stderr, "Failed to create thread -> %s\n", strerror(errno));
     return 0;
   }
   return 1;
@@ -175,6 +191,7 @@ static int sfb_thread_destroy_cond(pthread_cond_t *c) {
             strerror(retval));
     return 0;
   }
+  c = 0;
   return 1;
 }
 
@@ -185,6 +202,7 @@ static int sfb_thread_destroy_mutex(pthread_mutex_t *m) {
             strerror(retval));
     return 0;
   }
+  m = 0;
   return 1;
 }
 
@@ -198,25 +216,28 @@ static int sfb_thread_join(pthread_t *handle) {
 }
 
 static int sfb_thread_cond_signal(pthread_cond_t *c) {
-  if (pthread_cond_signal(c) != 0) {
+  int retval = 0;
+  if ((retval = pthread_cond_signal(c)) != 0) {
+    fprintf(stderr, "Failed to signal pthread_cond_t -> %s\n",
+            strerror(retval));
     return 0;
   }
   return 1;
 }
 
 static int sfb_thread_mutex_lock(pthread_mutex_t *m) {
-  const int r = pthread_mutex_lock(m);
-  if (r != 0) {
-    fprintf(stderr, "Failed to acquire mutex lock!-> %s\n", strerror(r));
+  int retval = 0;
+  if ((retval = pthread_mutex_lock(m)) != 0) {
+    fprintf(stderr, "Failed to acquire mutex lock -> %s\n", strerror(retval));
     return 0;
   }
   return 1;
 }
 
 static int sfb_thread_mutex_unlock(pthread_mutex_t *m) {
-  const int r = pthread_mutex_unlock(m);
-  if (r != 0) {
-    fprintf(stderr, "Failed to unlock mutex -> %s\n", strerror(r));
+  int retval = 0;
+  if ((retval = pthread_mutex_unlock(m)) != 0) {
+    fprintf(stderr, "Failed to unlock mutex -> %s\n", strerror(retval));
     return 0;
   }
   return 1;
@@ -373,7 +394,6 @@ int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx) {
 int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                           sfb_thread_handle *handle) {
   if ((ctx && ctx->valid) && handle) {
-    ctx->valid = 0;
     if (!sfb_thread_stop_flag_posix(ctx)) {
       return 0;
     }
@@ -394,6 +414,7 @@ int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
       return 0;
     }
     fprintf(stdout, "Thread { %zu } destroyed\n", handle->handle);
+    ctx->valid = 0;
     return 1;
   }
   return 0;
@@ -407,11 +428,15 @@ void *sfb_thread_posix_worker(void *arg) {
   sfb_thread_ctx_renderer *ctx = (sfb_thread_ctx_renderer *)arg;
   while (ctx->active) {
     if (!sfb_thread_mutex_lock(&ctx->mutex)) {
+      atomic_store(&ctx->errcode, 1);
       return NULL;
     }
 
     while (!ctx->working && ctx->active) {
-      pthread_cond_wait(&ctx->cond, &ctx->mutex);
+      if (!sfb_thread_cond_wait(&ctx->cond, &ctx->mutex)) {
+        atomic_store(&ctx->errcode, 1);
+        return NULL;
+      }
     }
 
     int process = (ctx->queued < SFB_THREAD_QUEUE_MAX) ? ctx->queued
@@ -446,12 +471,14 @@ void *sfb_thread_posix_worker(void *arg) {
     ctx->working = 0;
     if (!ctx->active) {
       if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+        atomic_store(&ctx->errcode, 1);
         return NULL;
       }
       break;
     }
 
     if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
+      atomic_store(&ctx->errcode, 1);
       return NULL;
     }
   }
@@ -477,6 +504,7 @@ sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
 
   for (int i = 0; i < cores; i++) {
     sfb_thread_ctx_renderer *ctx = &thread_ctxs[i];
+    ctx->errcode = 0;
     ctx->valid = 1;
     ctx->active = 1;
     ctx->queued = 0;

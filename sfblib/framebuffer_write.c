@@ -44,20 +44,27 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
       sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
       sfb_thread_ctx_renderer *d = &threads[thread];
 
-      sfb_thread_dequeue(d);
-      sfb_thread_queue_restack(d);
-
-      while (r < const_r) {
-        const int rthread = r % buffer->cores;
-        sfb_thread_ctx_renderer *rd = &threads[rthread];
-        sfb_thread_queue_job(rd, r - (r - 1), start, buffer, obj, y0, x0);
-        start = start + (r - (r - 1));
-        r++;
+      if (atomic_load(&d->errcode) != 0) {
+        d->valid = 0;
+        // TODO: Handle error
       }
 
-      sfb_thread_queue_job(d, rows_per_queue, start, buffer, obj, y0, x0);
-      start = start + rows_per_queue;
-      i++;
+      if (d->valid) {
+        sfb_thread_dequeue(d);
+        sfb_thread_queue_restack(d);
+
+        while (r < const_r) {
+          const int rthread = r % buffer->cores;
+          sfb_thread_ctx_renderer *rd = &threads[rthread];
+          sfb_thread_queue_job(rd, r - (r - 1), start, buffer, obj, y0, x0);
+          start = start + (r - (r - 1));
+          r++;
+        }
+
+        sfb_thread_queue_job(d, rows_per_queue, start, buffer, obj, y0, x0);
+        start = start + rows_per_queue;
+        i++;
+      }
     }
 
     for (int i = 0; i < buffer->cores; i++) {

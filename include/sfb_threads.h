@@ -1,5 +1,6 @@
 #ifndef SFB_THREADS_H
 #define SFB_THREADS_H
+#include <stdatomic.h>
 #include <stdint.h>
 #define SFB_THREAD_QUEUE_MAX 64
 
@@ -18,23 +19,24 @@ struct sfb_thread_job {
 typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
 typedef struct sfb_thread_handle sfb_thread_handle;
 
+sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores);
+sfb_thread_handle *sfb_thread_handle_allocate(const int cores);
+sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *handles,
+                                           int cores);
+
 int sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx);
-void sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
-void sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
-void sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
+int sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
+int sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int rows, int start,
                          sfb_framebuffer *buf, const sfb_obj *const obj, int y0,
                          int x0);
-sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores);
-sfb_thread_handle *sfb_thread_handle_allocate(const int cores);
 int sfb_get_cores(void);
-sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *handles,
-                                           int cores);
-void sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle);
+int sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle);
 // Ensure threads are joined and finished before calling these functions
 void sfb_free_handles(sfb_thread_handle *handles);
 void sfb_free_ctxs(sfb_thread_ctx_renderer *ctxs);
-void sfb_thread_signal(sfb_thread_ctx_renderer *ctx);
+int sfb_thread_signal(sfb_thread_ctx_renderer *ctx);
 
 #if defined(__unix__) || defined(__unix) || defined(unix) ||                   \
     (defined(__APPLE__) && defined(__MACH__))
@@ -54,6 +56,7 @@ struct sfb_thread_handle {
 struct sfb_thread_ctx_renderer {
   pthread_cond_t cond;
   pthread_mutex_t mutex;
+  _Atomic int errcode;
   int active;
   int valid;
   int queued;
