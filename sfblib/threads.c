@@ -281,6 +281,7 @@ int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx) {
   if (!sfb_thread_mutex_lock(&ctx->mutex)) {
     return 0;
   }
+
   sfb_thread_job **queue = ctx->jptrs;
   int dst = 0;
   for (int src = 0; src < SFB_THREAD_QUEUE_MAX && dst < SFB_THREAD_QUEUE_MAX;
@@ -289,9 +290,10 @@ int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx) {
       sfb_thread_job *tmp = queue[dst];
       queue[dst] = queue[src];
       queue[src] = tmp;
+      dst++;
     }
-    dst++;
   }
+
   if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
     return 0;
   }
