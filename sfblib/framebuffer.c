@@ -7,6 +7,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int sfb_threads_validate(sfb_thread_ctx_renderer *ctxs, int cores) {
+  if (!ctxs) {
+    return 0;
+  }
+
+  for (int i = 0; i < cores; i++) {
+    sfb_thread_ctx_renderer *ctx = &ctxs[i];
+    if (!ctx->valid) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 void sfb_free_obj(sfb_obj *o) {
   if (o && o->pixels) {
     free(o->pixels);
@@ -59,40 +74,39 @@ sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
     return NULL;
   }
 
-  sfb_framebuffer *fb_obj = calloc(1, sizeof(sfb_framebuffer));
-  if (!fb_obj) {
+  sfb_framebuffer *f = calloc(1, sizeof(sfb_framebuffer));
+  if (!f) {
     fprintf(stderr, "!calloc()->%s\n", strerror(errno));
     return NULL;
   }
 
-  fb_obj->cores = 0;
-  fb_obj->flags = flags;
-  fb_obj->w = width;
-  fb_obj->h = height;
-  fb_obj->size = width * height * sizeof(uint32_t);
-  fb_obj->data = framebuffer;
+  f->cores = 0;
+  f->flags = flags;
+  f->w = width;
+  f->h = height;
+  f->size = width * height * sizeof(uint32_t);
+  f->data = framebuffer;
 
-  fb_obj->clear = sfb_fb_clear;
-  fb_obj->write_obj = sfb_write_obj_rect;
-  fb_obj->write_rect = sfb_write_rect_generic;
-  fb_obj->write_circle = sfb_write_circle_generic;
+  f->clear = sfb_fb_clear;
+  f->write_obj = sfb_write_obj_rect;
+  f->write_rect = sfb_write_rect_generic;
+  f->write_circle = sfb_write_circle_generic;
 
-  if (fb_obj->flags & SFB_ENABLE_MULTITHREADED) {
-    fb_obj->cores = sfb_get_cores();
-    fb_obj->thread_handles = sfb_thread_handle_allocate(fb_obj->cores);
+  if (f->flags & SFB_ENABLE_MULTITHREADED) {
+    f->cores = sfb_get_cores();
+    f->thread_handles = sfb_thread_handle_allocate(f->cores);
 
-    if (fb_obj->thread_handles) {
-      fb_obj->thread_render_data =
-          sfb_spawn_threads(fb_obj->thread_handles, fb_obj->cores);
+    if (f->thread_handles) {
+      f->thread_render_data = sfb_spawn_threads(f->thread_handles, f->cores);
     }
 
-    if (!fb_obj->thread_render_data) {
-      sfb_free_handles(fb_obj->thread_handles);
-      fb_obj->flags &= SFB_ENABLE_MULTITHREADED;
+    if (!sfb_threads_validate(f->thread_render_data, f->cores)) {
+      sfb_free_handles(f->thread_handles);
+      f->flags &= SFB_ENABLE_MULTITHREADED;
     }
   }
 
-  return fb_obj;
+  return f;
 }
 
 void sfb_remove_light_source(sfb_obj *const obj, sfb_light_source *light) {

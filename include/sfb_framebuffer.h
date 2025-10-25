@@ -84,6 +84,8 @@ struct sfb_framebuffer {
 
 // Framebuffer writes
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);
+void sfb_put_light(const int x, const int y, uint32_t *const buf, const int w,
+                   const int h, uint32_t colour, int bufflags, int pixflags);
 void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer,
                         const sfb_camera *const camera);
 void sfb_put_pixel(int x, int y, uint32_t *const buf, int w, int h,

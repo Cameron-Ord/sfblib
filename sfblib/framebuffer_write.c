@@ -4,6 +4,9 @@
 #include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
 
+static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
+                                         sfb_framebuffer *const buffer,
+                                         const int y0, const int x0);
 static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
                                      sfb_framebuffer *const buffer,
                                      const int y0, const int x0);
@@ -17,6 +20,30 @@ inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
   }
   for (int i = 0; i < buffer->w * buffer->h; i++) {
     buffer->data[i] = clear_colour;
+  }
+}
+
+static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
+                                         sfb_framebuffer *const buffer,
+                                         const int y0, const int x0) {
+  const int rows = light->h, cols = light->w;
+  const uint32_t *rect = light->lightmap;
+  uint32_t *buf = buffer->data;
+
+  for (int dy = 0; dy < rows; dy++) {
+    const int y = y0 + dy;
+    if (y < 0 || y > buffer->h)
+      continue;
+
+    for (int dx = 0; dx < cols; dx++) {
+      const int x = x0 + dx;
+      if (x < 0 || x >= buffer->w)
+        continue;
+
+      const uint32_t col = rect[dy * cols + dx];
+      sfb_put_light(x, y, buf, buffer->w, buffer->h, col, buffer->flags,
+                    light->flags);
+    }
   }
 }
 
@@ -99,6 +126,11 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
     sfb_loop_obj_rect_threaded(obj, buffer, y0, x0);
   } else {
     sfb_loop_obj_rect(obj, buffer, y0, x0);
+    if (obj->flags & SFB_LIGHT_SOURCE && obj->light) {
+      // y0 and x0 will obviously need to be offset so the light is sourced from
+      // the center of the source (not impl)
+      sfb_loop_obj_lighting(obj->light, buffer, y0, x0);
+    }
   }
 }
 
@@ -161,12 +193,10 @@ void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
-    if (!(pixflags & SFB_LIGHT_SOURCE)) {
-      if (bufflags & SFB_BLEND_ENABLED) {
-        buf[l] = sfb_blend_pixel(buf[l], colour);
-      } else {
-        buf[l] = (255 << 24) | (colour << 16) | (colour << 8) | (colour << 0);
-      }
+    if (bufflags & SFB_BLEND_ENABLED) {
+      buf[l] = sfb_blend_pixel(buf[l], colour);
+    } else {
+      buf[l] = (255 << 24) | (colour << 16) | (colour << 8) | (colour << 0);
     }
   }
 }
@@ -178,13 +208,10 @@ void sfb_put_light(const int x, const int y, uint32_t *const buf, const int w,
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
-    if (pixflags & SFB_LIGHT_SOURCE) {
-      if (bufflags & SFB_BLEND_ENABLED) {
-        buf[l] = sfb_blend_pixel(buf[l], colour);
-      } else {
-        const uint32_t c = sfb_light_additive(buf[l], colour);
-        buf[l] = (255 << 24) | (c << 16) | (c << 8) | (c << 0);
-      }
+    if (bufflags & SFB_BLEND_ENABLED) {
+      buf[l] = sfb_blend_pixel(buf[l], colour);
+    } else {
+      buf[l] = sfb_light_additive(buf[l], colour);
     }
   }
 }
