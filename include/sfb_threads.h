@@ -2,7 +2,7 @@
 #define SFB_THREADS_H
 #include <stdatomic.h>
 #include <stdint.h>
-#define SFB_THREAD_QUEUE_MAX 64
+#define SFB_THREAD_QUEUE_MAX 128
 
 typedef struct sfb_thread_job sfb_thread_job;
 typedef struct sfb_framebuffer sfb_framebuffer;
@@ -10,7 +10,7 @@ typedef struct sfb_obj sfb_obj;
 
 struct sfb_thread_job {
   int done, dequeued;
-  int rows, start;
+  int start;
   sfb_framebuffer *buffer;
   const sfb_obj *obj;
   int y0, x0;
@@ -28,7 +28,7 @@ int sfb_thread_queue_restack(sfb_thread_ctx_renderer *ctx);
 int sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
 int sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
-int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int rows, int start,
+int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int start,
                          sfb_framebuffer *buf, const sfb_obj *const obj, int y0,
                          int x0);
 int sfb_get_cores(void);
@@ -69,9 +69,9 @@ int sfb_thread_queue_restack_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx);
-int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
-                               int start, sfb_framebuffer *buf,
-                               const sfb_obj *const obj, int y0, int x0);
+int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int start,
+                               sfb_framebuffer *buf, const sfb_obj *const obj,
+                               int y0, int x0);
 int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                           sfb_thread_handle *handle);
 int sfb_thread_signal_posix(sfb_thread_ctx_renderer *ctx);

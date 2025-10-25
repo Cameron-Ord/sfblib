@@ -76,11 +76,11 @@ sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *thread_handles,
 #endif
 }
 
-int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int rows, int start,
+int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, int start,
                          sfb_framebuffer *buf, const sfb_obj *const obj, int y0,
                          int x0) {
 #if POSIX
-  return sfb_thread_queue_job_posix(ctx, rows, start, buf, obj, y0, x0);
+  return sfb_thread_queue_job_posix(ctx, start, buf, obj, y0, x0);
 #elif WINDOWS
   return 0;
 #endif
@@ -132,10 +132,9 @@ static int sfb_thread_mutex_lock(pthread_mutex_t *m);
 static int sfb_thread_mutex_unlock(pthread_mutex_t *m);
 static int sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx);
-static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int rows,
-                                int start, sfb_framebuffer *buf,
-                                const sfb_obj *const obj, int y0, int x0,
-                                int pos);
+static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int start,
+                                sfb_framebuffer *buf, const sfb_obj *const obj,
+                                int y0, int x0, int pos);
 static int sfb_thread_cond_signal(pthread_cond_t *c);
 static int sfb_thread_join(pthread_t *handle);
 static int sfb_thread_destroy_mutex(pthread_mutex_t *m);
@@ -243,14 +242,13 @@ static int sfb_thread_mutex_unlock(pthread_mutex_t *m) {
   return 1;
 }
 
-static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int rows,
-                                int start, sfb_framebuffer *buf,
-                                const sfb_obj *const obj, int y0, int x0,
-                                int pos) {
+static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx, int start,
+                                sfb_framebuffer *buf, const sfb_obj *const obj,
+                                int y0, int x0, int pos) {
   if (!sfb_thread_mutex_lock(&ctx->mutex)) {
     return 0;
   }
-  sfb_thread_job tmp = {0, 0, rows, start, buf, obj, y0, x0};
+  sfb_thread_job tmp = {0, 0, start, buf, obj, y0, x0};
   ctx->queue[pos] = tmp;
   ctx->queued++;
   if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
@@ -316,16 +314,16 @@ int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
   return 1;
 }
 
-int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int rows,
-                               int start, sfb_framebuffer *buf,
-                               const sfb_obj *const obj, int y0, int x0) {
+int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx, int start,
+                               sfb_framebuffer *buf, const sfb_obj *const obj,
+                               int y0, int x0) {
   if (ctx && buf && obj) {
     int queue_pos = -1;
     if ((queue_pos = sfb_thread_queue_seek(ctx)) < 0) {
       return 0;
     }
 
-    if (!sfb_thread_queue_add(ctx, rows, start, buf, obj, y0, x0, queue_pos)) {
+    if (!sfb_thread_queue_add(ctx, start, buf, obj, y0, x0, queue_pos)) {
       return 0;
     }
     return 1;
@@ -449,23 +447,23 @@ void *sfb_thread_posix_worker(void *arg) {
         continue;
       }
 
-      for (int dy = 0; dy < job->rows; dy++) {
-        const int rdy = dy + job->start;
-        const int y = job->y0 + rdy;
-        if (y < 0 || (y >= job->buffer->h || rdy >= job->obj->h)) {
+      const int y = job->y0 + job->start;
+      if (y < 0 || y >= job->buffer->h) {
+        continue;
+      }
+
+      for (int dx = 0; dx < job->obj->w; dx++) {
+        const int x = job->x0 + dx;
+        if (x < 0 || x >= job->buffer->w) {
           continue;
         }
 
-        for (int dx = 0; dx < job->obj->w; dx++) {
-          const int x = job->x0 + dx;
-          if (x < 0 || (x >= job->buffer->w || dx >= job->obj->w)) {
-            continue;
-          }
+        uint32_t *buf = job->buffer->data;
+        uint32_t *rect = job->obj->pixels;
+        const uint32_t col = rect[job->start * job->obj->w + dx];
 
-          sfb_put_pixel(x, y, job->buffer->data, job->buffer->w, job->buffer->h,
-                        job->obj->pixels[rdy * job->obj->w + dx],
-                        job->buffer->flags, 1.0f);
-        }
+        sfb_put_pixel(x, y, buf, job->buffer->w, job->buffer->h, col,
+                      job->buffer->flags, job->obj->flags);
       }
       job->done = 1;
     }
@@ -517,7 +515,6 @@ sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
       ctx->queue[j].dequeued = 1;
       ctx->queue[j].obj = NULL;
       ctx->queue[j].buffer = NULL;
-      ctx->queue[j].rows = 0;
       ctx->queue[j].start = 0;
       ctx->queue[j].y0 = 0;
       ctx->queue[j].x0 = 0;

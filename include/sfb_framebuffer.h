@@ -87,7 +87,7 @@ void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);
 void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer,
                         const sfb_camera *const camera);
 void sfb_put_pixel(int x, int y, uint32_t *const buf, int w, int h,
-                   uint32_t colour, int flag, float intensity);
+                   uint32_t colour, int bufflags, int pixflags);
 void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
                             sfb_framebuffer *const buffer);
 void sfb_write_circle_generic(int xc, int yc, uint32_t colour,

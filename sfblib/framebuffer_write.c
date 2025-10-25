@@ -4,12 +4,74 @@
 #include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
 
+static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
+                                     sfb_framebuffer *const buffer,
+                                     const int y0, const int x0);
+static inline void sfb_loop_obj_rect_threaded(const sfb_obj *const obj,
+                                              sfb_framebuffer *const buffer,
+                                              const int y0, const int x0);
+
 inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
   if (!buffer) {
     return;
   }
   for (int i = 0; i < buffer->w * buffer->h; i++) {
     buffer->data[i] = clear_colour;
+  }
+}
+
+static inline void sfb_loop_obj_rect_threaded(const sfb_obj *const obj,
+                                              sfb_framebuffer *const buffer,
+                                              const int y0, const int x0) {
+  const int rows = obj->h, cores = buffer->cores;
+  sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
+
+  for (int j = 0; j < cores; j++) {
+    sfb_thread_dequeue(&threads[j]);
+    sfb_thread_queue_restack(&threads[j]);
+  }
+
+  for (int i = 0; i < rows; i++) {
+    const int thread = i % cores;
+    sfb_thread_ctx_renderer *d = &threads[thread];
+
+    if (atomic_load(&d->errcode) != 0) {
+      d->valid = 0;
+      // TODO: Handle error
+    }
+
+    if (d->valid) {
+      sfb_thread_queue_job(d, i, buffer, obj, y0, x0);
+    }
+  }
+
+  for (int i = 0; i < cores; i++) {
+    sfb_resume_thread(&buffer->thread_render_data[i]);
+    sfb_thread_signal(&buffer->thread_render_data[i]);
+  }
+}
+
+static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
+                                     sfb_framebuffer *const buffer,
+                                     const int y0, const int x0) {
+  uint32_t *buf = buffer->data;
+  uint32_t *rect = obj->pixels;
+  const int rows = obj->h, cols = obj->w;
+
+  for (int dy = 0; dy < rows; dy++) {
+    const int y = y0 + dy;
+    if (y < 0 || y >= buffer->h)
+      continue;
+
+    for (int dx = 0; dx < cols; dx++) {
+      const int x = x0 + dx;
+      if (x < 0 || x >= buffer->w)
+        continue;
+
+      const uint32_t col = rect[dy * cols + dx];
+      sfb_put_pixel(x, y, buf, buffer->w, buffer->h, col, buffer->flags,
+                    obj->flags);
+    }
   }
 }
 
@@ -34,66 +96,9 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
   }
 
   if (buffer->flags & SFB_ENABLE_MULTITHREADED) {
-    const int rows_per_queue = obj->h / buffer->cores;
-    const int rows = obj->h;
-    const int const_r = obj->h % buffer->cores;
-    int start = 0, i = 0, r = 0;
-    sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
-
-    while (i < rows) {
-      const int thread = i % buffer->cores;
-      sfb_thread_ctx_renderer *d = &threads[thread];
-
-      if (atomic_load(&d->errcode) != 0) {
-        d->valid = 0;
-        // TODO: Handle error
-      }
-
-      if (d->valid) {
-        sfb_thread_dequeue(d);
-        sfb_thread_queue_restack(d);
-        sfb_thread_queue_job(d, rows_per_queue, start, buffer, obj, y0, x0);
-        start = start + rows_per_queue;
-      }
-      i++;
-    }
-
-    while (r < const_r) {
-      const int thread = r % buffer->cores;
-      sfb_thread_ctx_renderer *d = &threads[thread];
-
-      if (atomic_load(&d->errcode) != 0) {
-        d->valid = 0;
-        // TODO: Handle error
-      }
-
-      if (d->valid) {
-        sfb_thread_queue_job(d, r - (r - 1), start, buffer, obj, y0, x0);
-        start = start + (r - (r - 1));
-      }
-      r++;
-    }
-
-    for (int i = 0; i < buffer->cores; i++) {
-      sfb_resume_thread(&buffer->thread_render_data[i]);
-      sfb_thread_signal(&buffer->thread_render_data[i]);
-    }
-
+    sfb_loop_obj_rect_threaded(obj, buffer, y0, x0);
   } else {
-    for (int dy = 0; dy < obj->h; dy++) {
-      const int y = y0 + dy;
-      if (y < 0 || (y >= buffer->h || dy >= obj->h))
-        continue;
-
-      for (int dx = 0; dx < obj->w; dx++) {
-        const int x = x0 + dx;
-        if (x < 0 || (x >= buffer->w || dx >= obj->w))
-          continue;
-
-        sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h,
-                      obj->pixels[dy * obj->w + dx], buffer->flags, 1.0f);
-      }
-    }
+    sfb_loop_obj_rect(obj, buffer, y0, x0);
   }
 }
 
@@ -113,7 +118,7 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
         continue;
 
       sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour,
-                    buffer->flags, 1.0f);
+                    buffer->flags, 0);
     }
   }
 }
@@ -141,7 +146,7 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
       const int dy = y - yc;
       if (dx * dx + dy * dy <= radius * radius) {
         sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour,
-                      buffer->flags, 1.0f);
+                      buffer->flags, 0);
       }
     }
   }
@@ -149,8 +154,7 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
 
 // None of the lighting flags are actually implemented yet
 void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour, int pixflags,
-                   float intensity) {
+                   const int h, uint32_t colour, int bufflags, int pixflags) {
   if (!buf) {
     return;
   }
@@ -158,27 +162,29 @@ void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
   const int max = w * h;
   if (l < max && l >= 0) {
     if (!(pixflags & SFB_LIGHT_SOURCE)) {
-      if (pixflags & SFB_BLEND_ENABLED) {
+      if (bufflags & SFB_BLEND_ENABLED) {
         buf[l] = sfb_blend_pixel(buf[l], colour);
       } else {
-        buf[l] = colour;
+        buf[l] = (255 << 24) | (colour << 16) | (colour << 8) | (colour << 0);
       }
     }
   }
 }
 
 void sfb_put_light(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour, int pixflags,
-                   float intensity) {
+                   const int h, uint32_t colour, int bufflags, int pixflags) {
   if (!buf)
     return;
   const int l = y * w + x;
   const int max = w * h;
-  if (pixflags & SFB_LIGHT_SOURCE) {
-    if (pixflags & SFB_BLEND_ENABLED) {
-      buf[l] = sfb_blend_pixel(buf[l], colour);
-    } else {
-      buf[l] = sfb_light_additive(buf[l], colour);
+  if (l < max && l >= 0) {
+    if (pixflags & SFB_LIGHT_SOURCE) {
+      if (bufflags & SFB_BLEND_ENABLED) {
+        buf[l] = sfb_blend_pixel(buf[l], colour);
+      } else {
+        const uint32_t c = sfb_light_additive(buf[l], colour);
+        buf[l] = (255 << 24) | (c << 16) | (c << 8) | (c << 0);
+      }
     }
   }
 }
