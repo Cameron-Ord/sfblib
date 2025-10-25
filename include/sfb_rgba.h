@@ -15,6 +15,7 @@ uint8_t sfb_col_exposure(uint8_t col, float intensity);
 uint8_t sfb_col_additive(uint8_t dst, uint8_t src);
 uint8_t sfb_mix_alpha(uint8_t src, uint8_t dst);
 uint8_t sfb_col_blended(uint8_t src, uint8_t dst, uint8_t a);
+uint32_t sfb_light_additive(uint32_t dstp, uint32_t srcp);
 
 void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit);
 void sfb_shift_bits_right_uint8(uint8_t *col, uint32_t pixel, int bit);

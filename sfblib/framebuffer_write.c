@@ -38,10 +38,10 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
     const int rows = obj->h;
     const int const_r = obj->h % buffer->cores;
     int start = 0, i = 0, r = 0;
+    sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
 
     while (i < rows) {
       const int thread = i % buffer->cores;
-      sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
       sfb_thread_ctx_renderer *d = &threads[thread];
 
       if (atomic_load(&d->errcode) != 0) {
@@ -52,19 +52,26 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
       if (d->valid) {
         sfb_thread_dequeue(d);
         sfb_thread_queue_restack(d);
-
-        while (r < const_r) {
-          const int rthread = r % buffer->cores;
-          sfb_thread_ctx_renderer *rd = &threads[rthread];
-          sfb_thread_queue_job(rd, r - (r - 1), start, buffer, obj, y0, x0);
-          start = start + (r - (r - 1));
-          r++;
-        }
-
         sfb_thread_queue_job(d, rows_per_queue, start, buffer, obj, y0, x0);
         start = start + rows_per_queue;
-        i++;
       }
+      i++;
+    }
+
+    while (r < const_r) {
+      const int thread = r % buffer->cores;
+      sfb_thread_ctx_renderer *d = &threads[thread];
+
+      if (atomic_load(&d->errcode) != 0) {
+        d->valid = 0;
+        // TODO: Handle error
+      }
+
+      if (d->valid) {
+        sfb_thread_queue_job(d, r - (r - 1), start, buffer, obj, y0, x0);
+        start = start + (r - (r - 1));
+      }
+      r++;
     }
 
     for (int i = 0; i < buffer->cores; i++) {
@@ -142,41 +149,36 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
 
 // None of the lighting flags are actually implemented yet
 void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour, int pixflag, float intensity) {
+                   const int h, uint32_t colour, int pixflags,
+                   float intensity) {
   if (!buf) {
     return;
   }
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
-    if (pixflag & SFB_LIGHT_SOURCE && pixflag & SFB_LIGHT_ADDITIVE &&
-        pixflag & SFB_LIGHT_INTENSITY_DIFFUSED) {
-      if (pixflag & SFB_BLEND_ENABLED) {
-        uint32_t diffused =
-            sfb_col_exposure(sfb_col_additive(buf[l], colour), intensity);
-        buf[l] = sfb_blend_pixel(buf[l], diffused);
-      } else {
-        buf[l] = sfb_col_exposure(sfb_col_additive(buf[l], colour), intensity);
-      }
-    } else if (pixflag & SFB_LIGHT_SOURCE && pixflag & SFB_LIGHT_ADDITIVE) {
-      if (pixflag & SFB_BLEND_ENABLED) {
-        buf[l] = sfb_blend_pixel(buf[l], sfb_col_additive(buf[l], colour));
-      } else {
-        buf[l] = sfb_col_additive(buf[l], colour);
-      }
-    } else if (pixflag & SFB_LIGHT_SOURCE &&
-               pixflag & SFB_LIGHT_INTENSITY_DIFFUSED) {
-      if (pixflag & SFB_BLEND_ENABLED) {
-        buf[l] = sfb_blend_pixel(buf[l], sfb_col_exposure(colour, intensity));
-      } else {
-        buf[l] = sfb_col_exposure(colour, intensity);
-      }
-    } else {
-      if (pixflag & SFB_BLEND_ENABLED) {
+    if (!(pixflags & SFB_LIGHT_SOURCE)) {
+      if (pixflags & SFB_BLEND_ENABLED) {
         buf[l] = sfb_blend_pixel(buf[l], colour);
       } else {
         buf[l] = colour;
       }
+    }
+  }
+}
+
+void sfb_put_light(const int x, const int y, uint32_t *const buf, const int w,
+                   const int h, uint32_t colour, int pixflags,
+                   float intensity) {
+  if (!buf)
+    return;
+  const int l = y * w + x;
+  const int max = w * h;
+  if (pixflags & SFB_LIGHT_SOURCE) {
+    if (pixflags & SFB_BLEND_ENABLED) {
+      buf[l] = sfb_blend_pixel(buf[l], colour);
+    } else {
+      buf[l] = sfb_light_additive(buf[l], colour);
     }
   }
 }

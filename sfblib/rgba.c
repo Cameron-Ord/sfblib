@@ -6,10 +6,7 @@
 const uint8_t CHANNEL_MAX = UINT8_MAX;
 
 static uint8_t sfb_channel_clamp(uint8_t c) {
-  if (c != 0) {
-    return c / CHANNEL_MAX;
-  }
-  return c;
+  return (c > CHANNEL_MAX) ? CHANNEL_MAX : c;
 }
 
 uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
@@ -126,6 +123,24 @@ uint32_t sfb_blend_pixel(uint32_t dstp, uint32_t srcp) {
   return (a3 << 24) | (r3 << 16) | (g3 << 8) | b3;
 }
 
+uint32_t sfb_light_additive(uint32_t dstp, uint32_t srcp) {
+  uint8_t r1 = (dstp >> 16) & 0xFF;
+  uint8_t g1 = (dstp >> 8) & 0xFF;
+  uint8_t b1 = dstp & 0xFF;
+
+  uint8_t r2 = (srcp >> 16) & 0xFF;
+  uint8_t g2 = (srcp >> 8) & 0xFF;
+  uint8_t b2 = srcp & 0xFF;
+
+  // Lighting ignores alpha, should alawys be max
+  uint8_t a = CHANNEL_MAX;
+  uint8_t r3 = sfb_col_additive(r1, r2);
+  uint8_t g3 = sfb_col_additive(g1, g2);
+  uint8_t b3 = sfb_col_additive(b1, b2);
+
+  return (a << 24) | (r3 << 16) | (g3 << 8) | b3;
+}
+
 uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src) {
   return src + (dst * (CHANNEL_MAX - src)) / CHANNEL_MAX;
 }
@@ -140,5 +155,5 @@ uint8_t sfb_col_additive(uint8_t dst, uint8_t src) {
 
 uint8_t sfb_col_blended(uint8_t dst, uint8_t src, uint8_t a) {
   const uint8_t blended = (src * a + dst * (CHANNEL_MAX - a)) / CHANNEL_MAX;
-  return (blended > CHANNEL_MAX) ? CHANNEL_MAX : blended;
+  return sfb_channel_clamp(blended);
 }
