@@ -132,8 +132,7 @@ uint32_t sfb_light_additive(uint32_t dstp, uint32_t srcp) {
   uint8_t g2 = (srcp >> 8) & 0xFF;
   uint8_t b2 = srcp & 0xFF;
 
-  // Lighting ignores alpha, should alawys be max
-  uint8_t a = CHANNEL_MAX;
+  uint8_t a = (srcp >> 24) & 0xFF;
   uint8_t r3 = sfb_col_additive(r1, r2);
   uint8_t g3 = sfb_col_additive(g1, g2);
   uint8_t b3 = sfb_col_additive(b1, b2);
