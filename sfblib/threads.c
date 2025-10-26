@@ -266,7 +266,7 @@ static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx,
 
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx) {
   if (!sfb_thread_mutex_lock(&ctx->mutex)) {
-    return 0;
+    return -1;
   }
   int j = -1;
   sfb_thread_job *queue = ctx->queue;
@@ -277,7 +277,7 @@ static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx) {
     }
   }
   if (!sfb_thread_mutex_unlock(&ctx->mutex)) {
-    return 0;
+    return -1;
   }
   return j;
 }
