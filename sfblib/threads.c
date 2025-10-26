@@ -485,8 +485,7 @@ void *sfb_thread_posix_worker(void *arg) {
           uint32_t *rect = job->obj->pixels;
           const uint32_t col = rect[dy * job->obj->w + dx];
 
-          sfb_put_pixel(x, y, buf, job->buffer->w, job->buffer->h, col,
-                        job->buffer->flags, job->obj->flags);
+          sfb_put_pixel(x, y, buf, job->buffer->w, job->buffer->h, col);
         }
         job->done = 1;
       }
