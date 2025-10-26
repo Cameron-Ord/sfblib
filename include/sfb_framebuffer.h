@@ -29,15 +29,12 @@ struct sfb_light_source {
   // the object changes scale - apply the scaling logic to radius
   uint32_t *lightmap;
   int w, h;
+  // Distance the light can travel before losing intensity relative
+  // to it's size
   float range;
-  /* Distance the light can travel before losing intensity relative
-    to it's size
-  */
+  // Size of the light relative to the objects(sources) size
+  // IE w = obj->w * size;
   float size;
-  /* Size of the light, floating point used to calculate size
-   of light relative to it's source // so if an object 8 x 8, if the size
-   is 2.0f, the light source is 16x16 in size
-   */
 
   int flags;
   uint32_t colour;

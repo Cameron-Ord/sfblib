@@ -15,12 +15,28 @@ int main(void) {
   }
   sfb_fb_clear(buffer, 0xFFFFFFFF);
 
-  int j = 0;
-  while (j < 10 * 10) {
-    sfb_write_obj_rect(objs[j % SIZE], buffer, NULL);
-    j++;
-  }
+  int h = 0;
+  while (h < 100 * 100) {
+    printf("%d\n", h);
+    for (int i = 0; i < buffer->cores; i++) {
+      sfb_thread_dequeue(&buffer->thread_render_data[i]);
+      sfb_thread_queue_restack(&buffer->thread_render_data[i]);
+    }
 
+    int j = 0;
+    while (j < 10 * 10) {
+      sfb_write_obj_rect(objs[j % SIZE], buffer, NULL);
+      j++;
+    }
+
+    for (int i = 0; i < buffer->cores; i++) {
+      sfb_resume_thread(&buffer->thread_render_data[i]);
+      sfb_thread_signal_resume(&buffer->thread_render_data[i]);
+    }
+
+    sfb_wait_threads(buffer->thread_render_data, buffer->cores);
+    h++;
+  }
   sfb_image_write_png(WIDTH, HEIGHT, buffer->data, 4, "thread.png");
   sfb_free_framebuffer(buffer);
   return 0;

@@ -10,9 +10,9 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
 static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
                                      sfb_framebuffer *const buffer,
                                      const int y0, const int x0);
-static inline void sfb_loop_obj_rect_threaded(const sfb_obj *const obj,
-                                              sfb_framebuffer *const buffer,
-                                              const int y0, const int x0);
+static inline void sfb_obj_queue_threaded(const sfb_obj *const obj,
+                                          sfb_framebuffer *const buffer,
+                                          const int y0, const int x0);
 
 inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
   if (!buffer) {
@@ -46,35 +46,33 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
     }
   }
 }
+// sfb_thread_dequeue and sfb_thread_queue_restack need to be called
+// at the top level of the event loop before queuing more jobs
+static inline void sfb_obj_queue_threaded(const sfb_obj *const obj,
+                                          sfb_framebuffer *const buffer,
+                                          const int y0, const int x0) {
+  static int current_thread;
+  const int cores = buffer->cores;
 
-static inline void sfb_loop_obj_rect_threaded(const sfb_obj *const obj,
-                                              sfb_framebuffer *const buffer,
-                                              const int y0, const int x0) {
-  const int rows = obj->h, cores = buffer->cores;
-  sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
-
-  for (int j = 0; j < cores; j++) {
-    sfb_thread_dequeue(&threads[j]);
-    sfb_thread_queue_restack(&threads[j]);
-  }
-
-  for (int i = 0; i < rows; i++) {
-    const int thread = i % cores;
-    sfb_thread_ctx_renderer *d = &threads[thread];
-
-    if (atomic_load(&d->errcode) != 0) {
-      d->valid = 0;
-      // TODO: Handle error
+  if (cores > 0 && buffer->flags & SFB_ENABLE_MULTITHREADED) {
+    sfb_thread_ctx_renderer *threads = buffer->thread_render_data;
+    if (!(current_thread >= 0 && current_thread < cores)) {
+      current_thread = 0;
     }
 
-    if (d->valid) {
-      sfb_thread_queue_job(d, i, buffer, obj, y0, x0);
-    }
-  }
+    if (threads) {
+      sfb_thread_ctx_renderer *ctx = &threads[current_thread];
+      if (atomic_load(&ctx->errcode) != 0) {
+        ctx->valid = 0;
+        // TODO: Handle error
+      }
 
-  for (int i = 0; i < cores; i++) {
-    sfb_resume_thread(&buffer->thread_render_data[i]);
-    sfb_thread_signal(&buffer->thread_render_data[i]);
+      if (ctx->valid) {
+        sfb_thread_queue_job(ctx, buffer, obj, y0, x0);
+      }
+
+      current_thread++;
+    }
   }
 }
 
@@ -123,7 +121,7 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
   }
 
   if (buffer->flags & SFB_ENABLE_MULTITHREADED) {
-    sfb_loop_obj_rect_threaded(obj, buffer, y0, x0);
+    sfb_obj_queue_threaded(obj, buffer, y0, x0);
   } else {
     sfb_loop_obj_rect(obj, buffer, y0, x0);
     if (obj->flags & SFB_LIGHT_SOURCE && obj->light) {
