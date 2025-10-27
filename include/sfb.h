@@ -12,6 +12,7 @@
 // reason, but they arent used at the moment
 
 #include "sfb_camera.h"
+#include "sfb_flags.h"
 #include "sfb_framebuffer.h"
 #include "sfb_rgba.h"
 #include "sfb_scale.h"
