@@ -24,14 +24,13 @@ sfb_obj *sfb_image_load(const char *filepath, int flags) {
 
   // TODO: Add support for RGB later I guess
   if (w > 0 && h > 0 && channels == requested_channels) {
-    uint32_t *pixels = sfb_rgba8_to_argb32(img, w, h, channels);
+    sfb_pixel *pixels = sfb_pixels_from_rgba8(img, w, h, channels);
     if (!pixels) {
       stbi_image_free(img);
       return NULL;
     }
 
-    sfb_obj *o = sfb_rect_from_sprite(w, h, pixels);
-    free(pixels);
+    sfb_obj *o = sfb_rect_from_sprite(w, h, &pixels);
     return o;
   } else {
     fprintf(stderr,

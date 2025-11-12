@@ -1,5 +1,6 @@
 #include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
+#include "../include/sfb_mat.h"
 #include "../include/sfb_threads.h"
 
 #include <errno.h>
@@ -45,8 +46,8 @@ void sfb_free_framebuffer(sfb_framebuffer *f) {
       fprintf(stdout, "..Done\n");
     }
 
-    if (f->data) {
-      free(f->data);
+    if (f->pixels) {
+      free(f->pixels);
     }
 
     free(f);
@@ -68,7 +69,7 @@ void sfb_free_light_source(sfb_light_source *light) {
 // together flags or 0
 sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
                                         int flags) {
-  uint32_t *framebuffer = calloc(width * height, sizeof(uint32_t));
+  sfb_pixel *framebuffer = calloc(width * height, sizeof(sfb_pixel));
   if (!framebuffer) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return NULL;
@@ -84,8 +85,8 @@ sfb_framebuffer *sfb_create_framebuffer(const int width, const int height,
   f->flags = flags;
   f->w = width;
   f->h = height;
-  f->size = width * height * sizeof(uint32_t);
-  f->data = framebuffer;
+  f->size = width * height * sizeof(sfb_pixel);
+  f->pixels = framebuffer;
 
   f->clear = sfb_fb_clear;
   f->write_obj = sfb_write_obj_rect;
@@ -136,14 +137,13 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, float size,
 
     light->flags = flags;
     light->mat = &obj->mat;
-    light->colour = colour;
     light->range = range;
     light->size = size;
 
     light->w = obj->w * light->size;
     light->h = obj->h * light->size;
 
-    light->lightmap = malloc(light->w * light->h * sizeof(uint32_t));
+    light->lightmap = malloc(light->w * light->h * sizeof(sfb_pixel));
     if (!light->lightmap) {
       fprintf(stderr, "Could not create light map (malloc())-> %s\n",
               strerror(errno));
@@ -151,9 +151,9 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj, float size,
       return NULL;
     }
 
-    const uint32_t *end = light->lightmap + (light->w * light->h);
-    for (uint32_t *p = light->lightmap; p < end && p != end; p++) {
-      *p = colour;
+    const sfb_pixel *end = light->lightmap + (light->w * light->h);
+    for (sfb_pixel *p = light->lightmap; p < end && p != end; p++) {
+      p->pixel.uint32_pixel = colour;
     }
 
     return light;
@@ -176,7 +176,7 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour) {
     return NULL;
   }
 
-  obj->pixels = malloc(w * h * sizeof(uint32_t));
+  obj->pixels = malloc(w * h * sizeof(sfb_pixel));
   if (!obj->pixels) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     free(obj);
@@ -184,7 +184,7 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour) {
   }
 
   for (int i = 0; i < w * h; i++) {
-    obj->pixels[i] = colour;
+    obj->pixels[i].pixel.uint32_pixel = colour;
   }
 
   sfb_mat delta = sfb_identity();
@@ -202,20 +202,13 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, uint32_t colour) {
   return obj;
 }
 
-sfb_obj *sfb_rect_from_sprite(const int w, const int h, const uint32_t *spr) {
+sfb_obj *sfb_rect_from_sprite(const int w, const int h, sfb_pixel **spr) {
   sfb_obj *obj = calloc(1, sizeof(sfb_obj));
   if (!obj) {
     fprintf(stderr, "!calloc()->%s\n", strerror(errno));
     return NULL;
   }
-
-  obj->pixels = malloc(w * h * sizeof(uint32_t));
-  if (!obj->pixels) {
-    fprintf(stderr, "!malloc()->%s\n", strerror(errno));
-    free(obj);
-    return NULL;
-  }
-  memcpy(obj->pixels, spr, w * h * sizeof(uint32_t));
+  obj->pixels = *spr;
 
   sfb_mat delta = sfb_identity();
   sfb_mat object_matrix = sfb_identity();

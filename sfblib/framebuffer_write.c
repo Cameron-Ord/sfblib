@@ -19,7 +19,7 @@ inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
     return;
   }
   for (int i = 0; i < buffer->w * buffer->h; i++) {
-    buffer->data[i] = clear_colour;
+    buffer->pixels[i].pixel.uint32_pixel = clear_colour;
   }
 }
 
@@ -27,8 +27,8 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
                                          sfb_framebuffer *const buffer,
                                          const int y0, const int x0) {
   const int rows = light->h, cols = light->w;
-  const uint32_t *rect = light->lightmap;
-  uint32_t *buf = buffer->data;
+  const sfb_pixel *rect = light->lightmap;
+  sfb_pixel *framebuffer = buffer->pixels;
 
   for (int dy = 0; dy < rows; dy++) {
     const int y = y0 + dy;
@@ -40,9 +40,21 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint32_t col = rect[dy * cols + dx];
-      sfb_put_light(x, y, buf, buffer->w, buffer->h, col, buffer->flags,
-                    light->flags);
+      const uint32_t src_pixel = rect[dy * cols + dx].pixel.uint32_pixel;
+      const int location = y * buffer->w + x;
+      const int size = buffer->w * buffer->h;
+
+      if (location < size && location > 0) {
+        if (buffer->flags & SFB_BLEND_ENABLED) {
+          const int dst_pixel = framebuffer[location].pixel.uint32_pixel;
+          const int write = sfb_blend_pixel(dst_pixel, src_pixel);
+          sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
+        } else {
+          const int dst_pixel = framebuffer[location].pixel.uint32_pixel;
+          const int write = sfb_light_additive(dst_pixel, src_pixel);
+          sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
+        }
+      }
     }
   }
 }
@@ -79,8 +91,8 @@ static inline void sfb_obj_queue_threaded(const sfb_obj *const obj,
 static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
                                      sfb_framebuffer *const buffer,
                                      const int y0, const int x0) {
-  uint32_t *buf = buffer->data;
-  uint32_t *rect = obj->pixels;
+  sfb_pixel *framebuffer = buffer->pixels;
+  sfb_pixel *rect = obj->pixels;
   const int rows = obj->h, cols = obj->w;
 
   for (int dy = 0; dy < rows; dy++) {
@@ -93,8 +105,8 @@ static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint32_t col = rect[dy * cols + dx];
-      sfb_put_pixel(x, y, buf, buffer->w, buffer->h, col);
+      const uint32_t col = rect[dy * cols + dx].pixel.uint32_pixel;
+      sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, col);
     }
   }
 }
@@ -146,7 +158,7 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+      sfb_put_pixel(x, y, buffer->pixels, buffer->w, buffer->h, colour);
     }
   }
 }
@@ -173,37 +185,20 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
       const int dx = x - xc;
       const int dy = y - yc;
       if (dx * dx + dy * dy <= radius * radius) {
-        sfb_put_pixel(x, y, buffer->data, buffer->w, buffer->h, colour);
+        sfb_put_pixel(x, y, buffer->pixels, buffer->w, buffer->h, colour);
       }
     }
   }
 }
 
-void sfb_put_pixel(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour) {
-  if (!buf)
-    return;
-
-  const int l = y * w + x;
-  const int max = w * h;
-  // Simply write the pixels RGB values with max alpha
-  if (l < max && l >= 0) {
-    buf[l] = (255 << 24) | (colour << 16) | (colour << 8) | (colour << 0);
-  }
-}
-
-void sfb_put_light(const int x, const int y, uint32_t *const buf, const int w,
-                   const int h, uint32_t colour, int bufflags, int pixflags) {
-  if (!buf)
+void sfb_put_pixel(const int x, const int y, sfb_pixel *const framebuffer,
+                   const int w, const int h, uint32_t colour) {
+  if (!framebuffer)
     return;
 
   const int l = y * w + x;
   const int max = w * h;
   if (l < max && l >= 0) {
-    if (bufflags & SFB_BLEND_ENABLED) {
-      buf[l] = sfb_blend_pixel(buf[l], colour);
-    } else {
-      buf[l] = sfb_light_additive(buf[l], colour);
-    }
+    framebuffer[l].pixel.uint32_pixel = colour;
   }
 }
