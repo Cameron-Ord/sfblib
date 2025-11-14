@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+uint8_t *sfb_flatten_internal_rgba8(const sfb_pixel *pixels, int w, int h,
+                                    int channels);
+
 void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour);
 void sfb_write_obj_rect(const sfb_obj *const obj, sfb_framebuffer *const buffer,
                         const sfb_camera *const camera);

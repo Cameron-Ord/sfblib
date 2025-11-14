@@ -23,6 +23,25 @@ static int sfb_threads_validate(sfb_thread_ctx_renderer *ctxs, int cores) {
   return 1;
 }
 
+uint8_t *sfb_flatten_internal_rgba8(const sfb_pixel *pixels, int w, int h,
+                                    int channels) {
+  uint8_t *dst = calloc(w * h * channels, sizeof(uint8_t));
+  if (!dst) {
+    fprintf(stderr, "!calloc()->%s\n", strerror(errno));
+    return NULL;
+  }
+
+  for (int i = 0; i < w * h; i++) {
+    const union pixel_data *data = &pixels[i].pixel;
+    const uint8_t *src_slice = data->uint8_pixel_array;
+    for (int c = 0; c < channels; c++) {
+      uint8_t src_channel = src_slice[c];
+      dst[i * channels + c] = src_channel;
+    }
+  }
+  return dst;
+}
+
 void sfb_free_obj(sfb_obj *o) {
   if (o && o->pixels) {
     free(o->pixels);

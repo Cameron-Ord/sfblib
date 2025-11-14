@@ -1,13 +1,15 @@
 #ifndef SFB_SCALE_H
 #define SFB_SCALE_H
+#include "sfb_pix_def.h"
 #include <stdint.h>
 
-uint32_t *sfb_scale_nearest_centered_malloc(uint32_t *src, int *srcw, int *srch,
-                                            float scale);
-uint32_t *sfb_scale_nearest_topleft_malloc(uint32_t *src, int *srcw, int *srch,
-                                           int scale);
-void sfb_scale_nearest_centered(uint32_t *src, int srcw, int srch,
-                                uint32_t *dst, int dstw, int dsth);
-void sfb_scale_nearest_topleft(uint32_t *src, int srcw, int srch, uint32_t *dst,
-                               int dstw, int dsth, int scale);
+sfb_pixel *sfb_scale_nearest_centered_malloc(sfb_pixel *src, int *srcw,
+                                             int *srch, float scale);
+sfb_pixel *sfb_scale_nearest_topleft_malloc(sfb_pixel *src, int *srcw,
+                                            int *srch, int scale);
+
+void sfb_scale_nearest_centered(sfb_pixel *src, int srcw, int srch,
+                                sfb_pixel *dst, int dstw, int dsth);
+void sfb_scale_nearest_topleft(sfb_pixel *src, int srcw, int srch,
+                               sfb_pixel *dst, int dstw, int dsth, int scale);
 #endif

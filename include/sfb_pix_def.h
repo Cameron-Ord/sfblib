@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef struct sfb_pixel sfb_pixel;
+typedef struct sfb_pixel_data sfb_pixel_data;
 
 #define SFB_COL_CHANNELS 4
 #define RED 0
@@ -11,14 +11,9 @@ typedef struct sfb_pixel sfb_pixel;
 #define BLUE 2
 #define ALPHA 3
 
-union pixel_data {
-  uint32_t uint32_pixel;
-  uint8_t uint8_pixel_array[SFB_COL_CHANNELS];
-};
-
-struct sfb_pixel {
-  union pixel_data pixel;
-  int flags;
+struct sfb_pixel_data {
+  uint8_t *pixels;
+  int *flags;
 };
 
 #endif

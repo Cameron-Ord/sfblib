@@ -15,8 +15,8 @@ static int scale_clamp(int min, int max, int n) {
   }
 }
 
-void sfb_scale_nearest_topleft(uint32_t *src, int srcw, int srch, uint32_t *dst,
-                               int dstw, int dsth, int scale) {
+void sfb_scale_nearest_topleft(sfb_pixel *src, int srcw, int srch,
+                               sfb_pixel *dst, int dstw, int dsth, int scale) {
   if (!src || !dst) {
     return;
   }
@@ -25,13 +25,16 @@ void sfb_scale_nearest_topleft(uint32_t *src, int srcw, int srch, uint32_t *dst,
     int sy = scale_clamp(0, srch - 1, y / scale);
     for (int x = 0; x < dstw; x++) {
       int sx = scale_clamp(0, srcw - 1, x / scale);
-      dst[y * dstw + x] = src[sy * srcw + sx];
+
+      union pixel_data *src_pixel = &src[sy * srcw + sx].pixel;
+      union pixel_data *dst_pixel = &src[y * dstw + x].pixel;
+      *dst_pixel = *src_pixel;
     }
   }
 }
 
-void sfb_scale_nearest_centered(uint32_t *src, int srcw, int srch,
-                                uint32_t *dst, int dstw, int dsth) {
+void sfb_scale_nearest_centered(sfb_pixel *src, int srcw, int srch,
+                                sfb_pixel *dst, int dstw, int dsth) {
   if (!src || !dst) {
     return;
   }
@@ -42,21 +45,24 @@ void sfb_scale_nearest_centered(uint32_t *src, int srcw, int srch,
     for (int x = 0; x < dstw; x++) {
       const float fx = (x + 0.5f) * ((float)srcw / dsth) - 0.5f;
       int sx = scale_clamp(0, srcw - 1, roundf(fx));
-      dst[y * dstw + x] = src[sy * srcw + sx];
+
+      union pixel_data *src_pixel = &src[sy * srcw + sx].pixel;
+      union pixel_data *dst_pixel = &src[y * dstw + x].pixel;
+      *dst_pixel = *src_pixel;
     }
   }
 }
 
 // Integer scaling
-uint32_t *sfb_scale_nearest_topleft_malloc(uint32_t *src, int *srcw, int *srch,
-                                           const int scale) {
+sfb_pixel *sfb_scale_nearest_topleft_malloc(sfb_pixel *src, int *srcw,
+                                            int *srch, const int scale) {
   if (!src || !srcw || !srch) {
     return NULL;
   }
   const int dstw = *srcw * scale;
   const int dsth = *srch * scale;
 
-  uint32_t *dst = malloc(dstw * dsth * sizeof(uint32_t));
+  sfb_pixel *dst = calloc(dstw * dsth, sizeof(sfb_pixel));
   if (!dst) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return src;
@@ -66,26 +72,30 @@ uint32_t *sfb_scale_nearest_topleft_malloc(uint32_t *src, int *srcw, int *srch,
     int sy = scale_clamp(0, *srch - 1, y / scale);
     for (int x = 0; x < dstw; x++) {
       int sx = scale_clamp(0, *srcw - 1, x / scale);
-      dst[y * dstw + x] = src[sy * *srcw + sx];
+      union pixel_data *dst_pixel = &dst[y * dstw + x].pixel;
+      union pixel_data *src_pixel = &src[sy * *srcw + sx].pixel;
+      *dst_pixel = *src_pixel;
     }
   }
+
   *srcw = dstw;
   *srch = dsth;
 
   free(src);
+  src = NULL;
   return dst;
 }
 
 // Non-Integer scaling
-uint32_t *sfb_scale_nearest_centered_malloc(uint32_t *src, int *srcw, int *srch,
-                                            const float scale) {
+sfb_pixel *sfb_scale_nearest_centered_malloc(sfb_pixel *src, int *srcw,
+                                             int *srch, const float scale) {
   if (!src || !srcw || !srch) {
     return NULL;
   }
   const int dstw = (int)(*srcw * scale);
   const int dsth = (int)(*srch * scale);
 
-  uint32_t *dst = malloc(dstw * dsth * sizeof(uint32_t));
+  sfb_pixel *dst = calloc(dstw * dsth, sizeof(sfb_pixel));
   if (!dst) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return src;
@@ -97,7 +107,9 @@ uint32_t *sfb_scale_nearest_centered_malloc(uint32_t *src, int *srcw, int *srch,
     for (int x = 0; x < dstw; x++) {
       const float fx = (x + 0.5f) * ((float)*srcw / dstw) - 0.5f;
       int sx = scale_clamp(0, *srcw - 1, roundf(fx));
-      dst[y * dstw + x] = src[sy * *srcw + sx];
+      union pixel_data *dst_pixel = &dst[y * dstw + x].pixel;
+      union pixel_data *src_pixel = &src[sy * *srcw + sx].pixel;
+      *dst_pixel = *src_pixel;
     }
   }
 
@@ -105,5 +117,6 @@ uint32_t *sfb_scale_nearest_centered_malloc(uint32_t *src, int *srcw, int *srch,
   *srch = dsth;
 
   free(src);
+  src = NULL;
   return dst;
 }

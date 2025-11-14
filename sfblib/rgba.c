@@ -9,15 +9,15 @@ static uint8_t sfb_channel_clamp(uint8_t c) {
   return (c > CHANNEL_MAX) ? CHANNEL_MAX : c;
 }
 
-uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
-  const uint32_t rgba = (argb << 8) | (argb >> 24);
-  return rgba;
-}
-
-uint32_t sfb_rgba32_to_argb32(uint32_t rgba) {
-  const uint32_t argb = (rgba >> 8) | (rgba << 24);
-  return argb;
-}
+// static uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
+// const uint32_t rgba = (argb << 8) | (argb >> 24);
+// return rgba;
+//}
+//
+// static uint32_t sfb_rgba32_to_argb32(uint32_t rgba) {
+// const uint32_t argb = (rgba >> 8) | (rgba << 24);
+// return argb;
+//}
 
 void sfb_shift_bits_left_uint32(uint32_t *pixel, uint8_t col, int bit) {
   *pixel |= (uint32_t)(col << bit);
@@ -46,11 +46,10 @@ sfb_pixel *sfb_pixels_from_rgba8(const uint8_t pixels[], int w, int h,
     memset(&buf[i].pixel, 0, sizeof(union pixel_data));
   }
 
-  const int stride = channels;
   for (int i = 0; i < w * h; i++) {
+    sfb_pixel *target = &buf[i];
     for (int c = 0; c < channels; c++) {
-      sfb_pixel *target = &buf[i];
-      uint8_t val = pixels[i * stride + c];
+      uint8_t val = pixels[i * channels + c];
       target->pixel.uint8_pixel_array[c] = val;
     }
   }
@@ -58,40 +57,26 @@ sfb_pixel *sfb_pixels_from_rgba8(const uint8_t pixels[], int w, int h,
   return buf;
 }
 
-uint32_t sfb_blend_pixel(uint32_t dstp, uint32_t srcp) {
-  uint8_t a1 = (dstp >> 24) & 0xFF;
-  uint8_t r1 = (dstp >> 16) & 0xFF;
-  uint8_t g1 = (dstp >> 8) & 0xFF;
-  uint8_t b1 = dstp & 0xFF;
+// Maybe in the future - add blendmodes
+uint32_t sfb_blend_pixel(const uint8_t dstp[SFB_COL_CHANNELS],
+                         const uint8_t srcp[SFB_COL_CHANNELS]) {
 
-  uint8_t a2 = (srcp >> 24) & 0xFF;
-  uint8_t r2 = (srcp >> 16) & 0xFF;
-  uint8_t g2 = (srcp >> 8) & 0xFF;
-  uint8_t b2 = srcp & 0xFF;
+  uint8_t r = sfb_col_blended(dstp[RED], srcp[RED], srcp[ALPHA]);
+  uint8_t g = sfb_col_blended(dstp[GREEN], srcp[GREEN], srcp[ALPHA]);
+  uint8_t b = sfb_col_blended(dstp[BLUE], srcp[BLUE], srcp[ALPHA]);
+  uint8_t a = sfb_mix_alpha(dstp[ALPHA], srcp[ALPHA]);
 
-  uint8_t a3 = sfb_mix_alpha(a1, a2);
-  uint8_t r3 = sfb_col_blended(r1, r2, a2);
-  uint8_t g3 = sfb_col_blended(g1, g2, a2);
-  uint8_t b3 = sfb_col_blended(b1, b2, a2);
-
-  return (a3 << 24) | (r3 << 16) | (g3 << 8) | b3;
+  return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
-uint32_t sfb_light_additive(uint32_t dstp, uint32_t srcp) {
-  uint8_t r1 = (dstp >> 16) & 0xFF;
-  uint8_t g1 = (dstp >> 8) & 0xFF;
-  uint8_t b1 = dstp & 0xFF;
+uint32_t sfb_light_additive(const uint8_t dstp[SFB_COL_CHANNELS],
+                            const uint8_t srcp[SFB_COL_CHANNELS]) {
 
-  uint8_t r2 = (srcp >> 16) & 0xFF;
-  uint8_t g2 = (srcp >> 8) & 0xFF;
-  uint8_t b2 = srcp & 0xFF;
+  uint8_t r = sfb_col_additive(dstp[RED], srcp[RED]);
+  uint8_t g = sfb_col_additive(dstp[GREEN], srcp[GREEN]);
+  uint8_t b = sfb_col_additive(dstp[BLUE], srcp[BLUE]);
 
-  uint8_t a = (srcp >> 24) & 0xFF;
-  uint8_t r3 = sfb_col_additive(r1, r2);
-  uint8_t g3 = sfb_col_additive(g1, g2);
-  uint8_t b3 = sfb_col_additive(b1, b2);
-
-  return (a << 24) | (r3 << 16) | (g3 << 8) | b3;
+  return (r << 24) | (g << 16) | (b << 8) | CHANNEL_MAX;
 }
 
 uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src) {

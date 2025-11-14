@@ -16,7 +16,7 @@ typedef struct sfb_thread_handle sfb_thread_handle;
 
 struct sfb_light_source {
   const sfb_mat *mat;
-  sfb_pixel *lightmap;
+  sfb_pixel_data lightmap;
   int w, h;
   float range;
   float size;
@@ -26,7 +26,7 @@ struct sfb_light_source {
 struct sfb_obj {
   sfb_mat mat;
   int w, h;
-  sfb_pixel *pixels;
+  sfb_pixel_data pixels;
   int flags;
   sfb_light_source *light;
   void (*(*move)(int, int, sfb_obj *))(sfb_camera *const, const sfb_obj *const);
@@ -38,7 +38,7 @@ struct sfb_obj {
 struct sfb_framebuffer {
   int w, h;
   size_t size;
-  sfb_pixel *pixels;
+  sfb_pixel_data pixels;
   int flags;
   int cores;
   sfb_thread_ctx_renderer *thread_render_data;

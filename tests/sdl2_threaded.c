@@ -12,17 +12,17 @@ int main(int argc, char **argv) {
                        SDL_WINDOWPOS_CENTERED, 1000, 1000, SDL_WINDOW_HIDDEN);
   SDL_Renderer *r = SDL_CreateRenderer(w, -1, SDL_RENDERER_SOFTWARE);
 
-  SDL_Texture *t = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888,
+  SDL_Texture *t = SDL_CreateTexture(r, SDL_PIXELFORMAT_RGBA8888,
                                      SDL_TEXTUREACCESS_STREAMING, 300, 300);
 
   sfb_framebuffer *fb =
       sfb_create_framebuffer(300, 300, SFB_ENABLE_MULTITHREADED);
-  sfb_obj *obj = sfb_create_rect(0, 0, 25, 25, 0xFFFF00FF);
+  sfb_obj *obj = sfb_create_rect(0, 0, 25, 25, SFB_RGBA(255, 255, 255, 255));
 
   SDL_ShowWindow(w);
   int running = 1;
   while (running) {
-    sfb_fb_clear(fb, 0xFF00FF00);
+    sfb_fb_clear(fb, SFB_RGBA(0, 0, 0, 0));
 
     for (int i = 0; i < fb->cores; i++) {
       sfb_thread_dequeue(&fb->thread_render_data[i]);

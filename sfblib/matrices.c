@@ -1,5 +1,5 @@
 #include "../include/sfb_camera.h"
-#include "../include/sfb_framebuffer.h"
+#include "../include/sfb_fb_def.h"
 
 sfb_mat sfb_identity(void) {
   return (sfb_mat){1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};

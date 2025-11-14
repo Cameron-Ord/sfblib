@@ -40,18 +40,19 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint32_t src_pixel = rect[dy * cols + dx].pixel.uint32_pixel;
+      const uint8_t *src_pixel = rect[dy * cols + dx].pixel.uint8_pixel_array;
       const int location = y * buffer->w + x;
       const int size = buffer->w * buffer->h;
 
       if (location < size && location > 0) {
+        union pixel_data pixel = framebuffer[location].pixel;
         if (buffer->flags & SFB_BLEND_ENABLED) {
-          const int dst_pixel = framebuffer[location].pixel.uint32_pixel;
-          const int write = sfb_blend_pixel(dst_pixel, src_pixel);
+          const uint8_t *dst_pixel = pixel.uint8_pixel_array;
+          const uint32_t write = sfb_blend_pixel(dst_pixel, src_pixel);
           sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
         } else {
-          const int dst_pixel = framebuffer[location].pixel.uint32_pixel;
-          const int write = sfb_light_additive(dst_pixel, src_pixel);
+          const uint8_t *dst_pixel = pixel.uint8_pixel_array;
+          const uint32_t write = sfb_light_additive(dst_pixel, src_pixel);
           sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
         }
       }
