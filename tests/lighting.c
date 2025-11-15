@@ -9,21 +9,19 @@
 int main(void) {
   const int flags = SFB_BLEND_ENABLED;
   sfb_framebuffer *buffer = sfb_create_framebuffer(WIDTH, HEIGHT, flags);
-  sfb_obj *objs[(WIDTH / 8) * (HEIGHT / 6)];
-  for (int i = 0; i < (WIDTH / 8) * (HEIGHT / 6); i++) {
-    objs[i] = sfb_create_rect(i * 8, i * 6, 8, 6, 0xFF00FF00);
-    sfb_assign_light(objs[i], objs[i]->create_light_source(
-                                  objs[i], .5f, 1.0f, 1.0f, 0xFFFFFF00, 0));
-  }
-  sfb_fb_clear(buffer, 0xFFFFFFFF);
 
-  int j = 0;
-  while (j < 10 * 10) {
-    sfb_write_obj_rect(objs[j % SIZE], buffer, NULL);
-    j++;
-  }
+  sfb_obj *obj =
+      sfb_create_rect(WIDTH / 2, HEIGHT / 2, 32, 32,
+                      (sfb_colour){255, 0, 0, 255}, buffer->channels);
+  sfb_light_source *light =
+      sfb_create_light_source(obj, buffer->channels, 12.0f, 1.0f, 0.025, 0.99,
+                              (sfb_colour){255, 165, 0, 255}, 0);
+  sfb_assign_light(obj, light);
+  sfb_fb_clear(buffer, (sfb_colour){0, 0, 0, 255});
 
-  sfb_image_write_png(WIDTH, HEIGHT, buffer->data, 4, "thread.png");
+  sfb_write_obj_rect(obj, buffer, NULL);
+
+  sfb_image_write_png(WIDTH, HEIGHT, buffer->pixels.data, "thread.png");
   sfb_free_framebuffer(buffer);
   return 0;
 }

@@ -157,7 +157,15 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
     if (obj->flags & SFB_LIGHT_SOURCE && obj->light) {
       // y0 and x0 will obviously need to be offset so the light is sourced from
       // the center of the source (not impl)
-      sfb_loop_obj_lighting(obj->light, buffer, y0, x0);
+      const int light_yoffset = obj->light->h - (obj->light->h / 2);
+      const int light_xoffset = obj->light->w - (obj->light->w / 2);
+
+      const int obj_yoffset = obj->h - (obj->h / 2);
+      const int obj_xoffset = obj->w - (obj->w / 2);
+
+      const int yoffset = light_yoffset - obj_yoffset;
+      const int xoffset = light_xoffset - obj_xoffset;
+      sfb_loop_obj_lighting(obj->light, buffer, y0 - yoffset, x0 - xoffset);
     }
   }
 }

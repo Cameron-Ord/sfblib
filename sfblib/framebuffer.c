@@ -1,9 +1,11 @@
 #include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_mat.h"
+#include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -134,7 +136,8 @@ void sfb_assign_light(sfb_obj *const obj, sfb_light_source *light) {
 sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
                                           const int channels, float size_coeff,
                                           float intensity, float range,
-                                          sfb_colour c, int flags) {
+                                          float dither_rate, sfb_colour c,
+                                          int flags) {
   if (obj && !(obj->flags & SFB_LIGHT_SOURCE)) {
     sfb_light_source *light = malloc(sizeof(sfb_light_source));
     if (!light) {
@@ -143,9 +146,8 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
       return NULL;
     }
 
-    light->size_coeff = size_coeff;
-    light->w = obj->w * light->size_coeff;
-    light->h = obj->h * light->size_coeff;
+    light->w = obj->w * size_coeff;
+    light->h = obj->h * size_coeff;
     const size_t heap_size = light->w * light->h * channels;
 
     light->lightmap.data = malloc(heap_size * sizeof(uint8_t));
@@ -167,15 +169,40 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
     light->channels = channels;
     light->flags = flags;
     light->mat = &obj->mat;
-    light->range = range;
     light->size = heap_size;
 
-    // Includes the alpha channel always, but if blending is not enabled it will
-    // simply be ignored
     const uint8_t colours[SFB_MAX_CHANNELS] = {c.r, c.g, c.b, c.a};
-    for (int i = 0; i < light->w * light->h; i++) {
-      for (int c = 0; c < channels; c++) {
-        light->lightmap.data[i * channels + c] = colours[c];
+
+    const int cx = light->w / 2;
+    const int cy = light->h / 2;
+
+    const int wcut = (light->w * range) / 2;
+    const int hcut = (light->h * range) / 2;
+
+    uint8_t *data = light->lightmap.data;
+
+    for (int y = 0; y < light->h; y++) {
+      for (int x = 0; x < light->w; x++) {
+
+        int dx = x > cx ? x - cx : cx - x;
+        int dy = y > cy ? y - cy : cy - y;
+
+        float pix_int = intensity;
+
+        if (dx > wcut) {
+          int excess = dx - wcut;
+          pix_int *= powf(dither_rate, excess);
+        }
+
+        if (dy > hcut) {
+          int excess = dy - hcut;
+          pix_int *= powf(dither_rate, excess);
+        }
+
+        int i = y * light->w + x;
+
+        for (int c = 0; c < channels; c++)
+          data[i * channels + c] = sfb_col_exposure(colours[c], pix_int);
       }
     }
 

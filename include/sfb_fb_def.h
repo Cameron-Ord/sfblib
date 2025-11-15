@@ -20,8 +20,6 @@ struct sfb_light_source {
   size_t size;
   int channels;
   int w, h;
-  float range;
-  float size_coeff;
   int flags;
 };
 
@@ -35,7 +33,8 @@ struct sfb_obj {
   sfb_light_source *light;
   void (*(*move)(int, int, sfb_obj *))(sfb_camera *const, const sfb_obj *const);
   sfb_light_source *(*create_light_source)(const sfb_obj *const, int, float,
-                                           float, float, sfb_colour, int);
+                                           float, float, float, sfb_colour,
+                                           int);
 };
 
 struct sfb_framebuffer {
