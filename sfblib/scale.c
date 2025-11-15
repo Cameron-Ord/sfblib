@@ -15,8 +15,8 @@ static int scale_clamp(int min, int max, int n) {
   }
 }
 
-void sfb_scale_nearest_topleft(sfb_pixel *src, int srcw, int srch,
-                               sfb_pixel *dst, int dstw, int dsth, int scale) {
+void sfb_scale_nearest_topleft(uint8_t *src, int srcw, int srch, uint8_t *dst,
+                               int dstw, int dsth, int scale, int channels) {
   if (!src || !dst) {
     return;
   }
@@ -26,15 +26,17 @@ void sfb_scale_nearest_topleft(sfb_pixel *src, int srcw, int srch,
     for (int x = 0; x < dstw; x++) {
       int sx = scale_clamp(0, srcw - 1, x / scale);
 
-      union pixel_data *src_pixel = &src[sy * srcw + sx].pixel;
-      union pixel_data *dst_pixel = &src[y * dstw + x].pixel;
-      *dst_pixel = *src_pixel;
+      for (int c = 0; c < channels; c++) {
+        const int srci = (sy * srcw + sx);
+        const int dsti = (y * dstw + x);
+        dst[dsti * channels + c] = src[srci * channels + c];
+      }
     }
   }
 }
 
-void sfb_scale_nearest_centered(sfb_pixel *src, int srcw, int srch,
-                                sfb_pixel *dst, int dstw, int dsth) {
+void sfb_scale_nearest_centered(uint8_t *src, int srcw, int srch, uint8_t *dst,
+                                int dstw, int dsth, int channels) {
   if (!src || !dst) {
     return;
   }
@@ -46,23 +48,25 @@ void sfb_scale_nearest_centered(sfb_pixel *src, int srcw, int srch,
       const float fx = (x + 0.5f) * ((float)srcw / dsth) - 0.5f;
       int sx = scale_clamp(0, srcw - 1, roundf(fx));
 
-      union pixel_data *src_pixel = &src[sy * srcw + sx].pixel;
-      union pixel_data *dst_pixel = &src[y * dstw + x].pixel;
-      *dst_pixel = *src_pixel;
+      for (int c = 0; c < channels; c++) {
+        const int srci = (sy * srcw + sx);
+        const int dsti = (y * dstw + x);
+        dst[dsti * channels + c] = src[srci * channels + c];
+      }
     }
   }
 }
 
 // Integer scaling
-sfb_pixel *sfb_scale_nearest_topleft_malloc(sfb_pixel *src, int *srcw,
-                                            int *srch, const int scale) {
+uint8_t *sfb_scale_nearest_topleft_malloc(uint8_t *src, int *srcw, int *srch,
+                                          const int scale, int channels) {
   if (!src || !srcw || !srch) {
     return NULL;
   }
   const int dstw = *srcw * scale;
   const int dsth = *srch * scale;
 
-  sfb_pixel *dst = calloc(dstw * dsth, sizeof(sfb_pixel));
+  uint8_t *dst = calloc(dstw * dsth * channels, sizeof(uint8_t));
   if (!dst) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return src;
@@ -72,9 +76,11 @@ sfb_pixel *sfb_scale_nearest_topleft_malloc(sfb_pixel *src, int *srcw,
     int sy = scale_clamp(0, *srch - 1, y / scale);
     for (int x = 0; x < dstw; x++) {
       int sx = scale_clamp(0, *srcw - 1, x / scale);
-      union pixel_data *dst_pixel = &dst[y * dstw + x].pixel;
-      union pixel_data *src_pixel = &src[sy * *srcw + sx].pixel;
-      *dst_pixel = *src_pixel;
+      for (int c = 0; c < channels; c++) {
+        const int srci = (sy * *srcw + sx);
+        const int dsti = (y * dstw + x);
+        dst[dsti * channels + c] = src[srci * channels + c];
+      }
     }
   }
 
@@ -87,15 +93,15 @@ sfb_pixel *sfb_scale_nearest_topleft_malloc(sfb_pixel *src, int *srcw,
 }
 
 // Non-Integer scaling
-sfb_pixel *sfb_scale_nearest_centered_malloc(sfb_pixel *src, int *srcw,
-                                             int *srch, const float scale) {
+uint8_t *sfb_scale_nearest_centered_malloc(uint8_t *src, int *srcw, int *srch,
+                                           const float scale, int channels) {
   if (!src || !srcw || !srch) {
     return NULL;
   }
   const int dstw = (int)(*srcw * scale);
   const int dsth = (int)(*srch * scale);
 
-  sfb_pixel *dst = calloc(dstw * dsth, sizeof(sfb_pixel));
+  uint8_t *dst = calloc(dstw * dsth * channels, sizeof(uint8_t));
   if (!dst) {
     fprintf(stderr, "!malloc()->%s\n", strerror(errno));
     return src;
@@ -107,9 +113,11 @@ sfb_pixel *sfb_scale_nearest_centered_malloc(sfb_pixel *src, int *srcw,
     for (int x = 0; x < dstw; x++) {
       const float fx = (x + 0.5f) * ((float)*srcw / dstw) - 0.5f;
       int sx = scale_clamp(0, *srcw - 1, roundf(fx));
-      union pixel_data *dst_pixel = &dst[y * dstw + x].pixel;
-      union pixel_data *src_pixel = &src[sy * *srcw + sx].pixel;
-      *dst_pixel = *src_pixel;
+      for (int c = 0; c < channels; c++) {
+        const int srci = (sy * *srcw + sx);
+        const int dsti = (y * dstw + x);
+        dst[dsti * channels + c] = src[srci * channels + c];
+      }
     }
   }
 

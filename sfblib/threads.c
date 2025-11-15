@@ -1,4 +1,6 @@
+#include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
+#include "../include/sfb_rgba.h"
 #include "../include/sfb_threads.h"
 
 #include <assert.h>
@@ -469,23 +471,38 @@ void *sfb_thread_posix_worker(void *arg) {
         continue;
       }
 
-      for (int dy = 0; dy < job->obj->h; dy++) {
+      const int w = job->buffer->w, h = job->buffer->h;
+      const size_t size = job->buffer->size;
+      const int flags = job->buffer->flags;
+      uint8_t *framebuffer = job->buffer->pixels.data;
+      const uint8_t *rect = job->obj->pixels.data;
+      const int channels = job->buffer->channels;
+
+      for (int dy = 0; dy < h; dy++) {
         const int y = job->y0 + dy;
         if (y < 0 || y >= job->buffer->h) {
           continue;
         }
 
-        for (int dx = 0; dx < job->obj->w; dx++) {
+        for (int dx = 0; dx < w; dx++) {
           const int x = job->x0 + dx;
           if (x < 0 || x >= job->buffer->w) {
             continue;
           }
 
-          sfb_pixel *buf = job->buffer->pixels;
-          sfb_pixel *rect = job->obj->pixels;
-          const uint32_t col = rect[dy * job->obj->w + dx].pixel.uint32_pixel;
+          const uint8_t *src_start = rect + ((dy * w + dx) * channels);
+          const int location = (y * w + x) * channels;
 
-          sfb_put_pixel(x, y, buf, job->buffer->w, job->buffer->h, col);
+          if (location < size && location >= 0) {
+            uint8_t *dst_start = framebuffer + location;
+            if (flags & SFB_BLEND_ENABLED) {
+              uint8_t blended[SFB_RGBA_CHANNELS];
+              sfb_blend_pixel(blended, dst_start, src_start);
+              sfb_put_pixel(dst_start, blended, channels);
+            } else {
+              sfb_put_pixel(dst_start, src_start, channels);
+            }
+          }
         }
         job->done = 1;
       }

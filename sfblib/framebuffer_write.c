@@ -14,12 +14,17 @@ static inline void sfb_obj_queue_threaded(const sfb_obj *const obj,
                                           sfb_framebuffer *const buffer,
                                           const int y0, const int x0);
 
-inline void sfb_fb_clear(sfb_framebuffer *const buffer, uint32_t clear_colour) {
+inline void sfb_fb_clear(sfb_framebuffer *const buffer,
+                         sfb_colour clear_colour) {
   if (!buffer) {
     return;
   }
+  uint8_t channels[SFB_MAX_CHANNELS] = {clear_colour.r, clear_colour.g,
+                                        clear_colour.b, clear_colour.a};
   for (int i = 0; i < buffer->w * buffer->h; i++) {
-    buffer->pixels[i].pixel.uint32_pixel = clear_colour;
+    for (int c = 0; c < buffer->channels; c++) {
+      buffer->pixels.data[i * buffer->channels + c] = channels[c];
+    }
   }
 }
 
@@ -27,8 +32,8 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
                                          sfb_framebuffer *const buffer,
                                          const int y0, const int x0) {
   const int rows = light->h, cols = light->w;
-  const sfb_pixel *rect = light->lightmap;
-  sfb_pixel *framebuffer = buffer->pixels;
+  const uint8_t *rect = light->lightmap.data;
+  uint8_t *framebuffer = buffer->pixels.data;
 
   for (int dy = 0; dy < rows; dy++) {
     const int y = y0 + dy;
@@ -40,20 +45,19 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint8_t *src_pixel = rect[dy * cols + dx].pixel.uint8_pixel_array;
-      const int location = y * buffer->w + x;
-      const int size = buffer->w * buffer->h;
+      const uint8_t *src_start = rect + ((dy * cols + dx) * light->channels);
+      const int location = (y * buffer->w + x) * buffer->channels;
 
-      if (location < size && location > 0) {
-        union pixel_data pixel = framebuffer[location].pixel;
+      if (location < buffer->size && location > 0) {
+        uint8_t *dst_start = framebuffer + location;
         if (buffer->flags & SFB_BLEND_ENABLED) {
-          const uint8_t *dst_pixel = pixel.uint8_pixel_array;
-          const uint32_t write = sfb_blend_pixel(dst_pixel, src_pixel);
-          sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
+          uint8_t blended[SFB_RGBA_CHANNELS];
+          sfb_blend_pixel(blended, dst_start, src_start);
+          sfb_put_pixel(dst_start, blended, buffer->channels);
         } else {
-          const uint8_t *dst_pixel = pixel.uint8_pixel_array;
-          const uint32_t write = sfb_light_additive(dst_pixel, src_pixel);
-          sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, write);
+          uint8_t add[SFB_RGB_CHANNELS];
+          sfb_light_additive(add, dst_start, src_start);
+          sfb_put_pixel(dst_start, add, buffer->channels);
         }
       }
     }
@@ -92,22 +96,32 @@ static inline void sfb_obj_queue_threaded(const sfb_obj *const obj,
 static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
                                      sfb_framebuffer *const buffer,
                                      const int y0, const int x0) {
-  sfb_pixel *framebuffer = buffer->pixels;
-  sfb_pixel *rect = obj->pixels;
-  const int rows = obj->h, cols = obj->w;
+  uint8_t *framebuffer = buffer->pixels.data;
+  const uint8_t *rect = obj->pixels.data;
 
-  for (int dy = 0; dy < rows; dy++) {
+  for (int dy = 0; dy < obj->h; dy++) {
     const int y = y0 + dy;
     if (y < 0 || y >= buffer->h)
       continue;
 
-    for (int dx = 0; dx < cols; dx++) {
+    for (int dx = 0; dx < obj->w; dx++) {
       const int x = x0 + dx;
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint32_t col = rect[dy * cols + dx].pixel.uint32_pixel;
-      sfb_put_pixel(x, y, framebuffer, buffer->w, buffer->h, col);
+      const uint8_t *src_start = rect + ((dy * obj->w + dx) * obj->channels);
+      const int location = (y * buffer->w + x) * buffer->channels;
+
+      if (location < buffer->size && location >= 0) {
+        uint8_t *dst_start = framebuffer + location;
+        if (buffer->flags & SFB_BLEND_ENABLED) {
+          uint8_t blended[SFB_RGBA_CHANNELS];
+          sfb_blend_pixel(blended, dst_start, src_start);
+          sfb_put_pixel(dst_start, blended, buffer->channels);
+        } else {
+          sfb_put_pixel(dst_start, src_start, buffer->channels);
+        }
+      }
     }
   }
 }
@@ -144,11 +158,14 @@ inline void sfb_write_obj_rect(const sfb_obj *const obj,
   }
 }
 
-void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
+void sfb_write_rect_generic(int x0, int y0, int w0, int h0, sfb_colour colour,
                             sfb_framebuffer *const buffer) {
   if (!buffer) {
     return;
   }
+
+  uint8_t *framebuffer = buffer->pixels.data;
+  uint8_t src[SFB_MAX_CHANNELS] = {colour.r, colour.g, colour.b, colour.a};
 
   for (int dy = 0; dy < h0; dy++) {
     const int y = y0 + dy;
@@ -159,16 +176,30 @@ void sfb_write_rect_generic(int x0, int y0, int w0, int h0, uint32_t colour,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      sfb_put_pixel(x, y, buffer->pixels, buffer->w, buffer->h, colour);
+      const int location = (y * buffer->w + x) * buffer->channels;
+
+      if (location < buffer->size && location >= 0) {
+        uint8_t *dst_start = framebuffer + location;
+        if (buffer->flags & SFB_BLEND_ENABLED) {
+          uint8_t blended[SFB_RGBA_CHANNELS];
+          sfb_blend_pixel(blended, dst_start, src);
+          sfb_put_pixel(dst_start, blended, buffer->channels);
+        } else {
+          sfb_put_pixel(dst_start, src, buffer->channels);
+        }
+      }
     }
   }
 }
 
-void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
+void sfb_write_circle_generic(const int xc, const int yc, sfb_colour colour,
                               sfb_framebuffer *const buffer, const int radius) {
   if (!buffer) {
     return;
   }
+
+  uint8_t *framebuffer = buffer->pixels.data;
+  uint8_t src[SFB_MAX_CHANNELS] = {colour.r, colour.g, colour.b, colour.a};
 
   const int xstart = xc - radius;
   const int ystart = yc - radius;
@@ -183,23 +214,44 @@ void sfb_write_circle_generic(const int xc, const int yc, uint32_t colour,
       if (!(x >= 0 && x < buffer->w))
         continue;
 
+      const int location = (y * buffer->w + x) * buffer->channels;
       const int dx = x - xc;
       const int dy = y - yc;
-      if (dx * dx + dy * dy <= radius * radius) {
-        sfb_put_pixel(x, y, buffer->pixels, buffer->w, buffer->h, colour);
+
+      if ((dx * dx + dy * dy <= radius * radius) && location < buffer->size &&
+          location >= 0) {
+        uint8_t *dst_start = framebuffer + location;
+        if (buffer->flags & SFB_BLEND_ENABLED) {
+          uint8_t blended[SFB_RGBA_CHANNELS];
+          sfb_blend_pixel(blended, dst_start, src);
+          sfb_put_pixel(dst_start, blended, buffer->channels);
+        } else {
+          sfb_put_pixel(dst_start, src, buffer->channels);
+        }
       }
     }
   }
 }
 
-void sfb_put_pixel(const int x, const int y, sfb_pixel *const framebuffer,
-                   const int w, const int h, uint32_t colour) {
+void sfb_put_pixel(uint8_t *const framebuffer, const uint8_t *colour,
+                   uint8_t buffer_channels) {
   if (!framebuffer)
     return;
 
-  const int l = y * w + x;
-  const int max = w * h;
-  if (l < max && l >= 0) {
-    framebuffer[l].pixel.uint32_pixel = colour;
+  switch (buffer_channels) {
+  default:
+    break;
+  case SFB_RGBA_CHANNELS: {
+    *(framebuffer + RED) = *(colour + RED);
+    *(framebuffer + GREEN) = *(colour + GREEN);
+    *(framebuffer + BLUE) = *(colour + BLUE);
+    *(framebuffer + ALPHA) = *(colour + ALPHA);
+  } break;
+
+  case SFB_RGB_CHANNELS: {
+    *(framebuffer + RED) = *(colour + RED);
+    *(framebuffer + GREEN) = *(colour + GREEN);
+    *(framebuffer + BLUE) = *(colour + BLUE);
+  } break;
   }
 }

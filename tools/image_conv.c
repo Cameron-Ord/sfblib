@@ -10,35 +10,25 @@
 #include "../include/sfb.h"
 
 sfb_obj *sfb_image_load(const char *filepath, int flags) {
-  int w = 0, h = 0, channels = 0;
-  const int requested_channels = SFB_COL_CHANNELS;
+  int w = 0, h = 0, img_channels = 0;
+  fprintf(stdout, "Loading image..\n");
 
+  // Always request 4 channel RGBA
   unsigned char *img =
-      stbi_load(filepath, &w, &h, &channels, requested_channels);
+      stbi_load(filepath, &w, &h, &img_channels, SFB_RGBA_CHANNELS);
   if (!img) {
     fprintf(stderr, "Failed to load image -> %s\n", stbi_failure_reason());
     return NULL;
   }
-  printf("width: %d height: %d channels: %d requested channels: %d\n", w, h,
-         channels, requested_channels);
+  printf("width: %d height: %d image channels: %d buffer channels: %d\n", w, h,
+         img_channels, SFB_RGBA_CHANNELS);
 
-  // TODO: Add support for RGB later I guess
-  if (w > 0 && h > 0 && channels == requested_channels) {
-    sfb_pixel *pixels = sfb_pixels_from_rgba8(img, w, h, channels);
-    if (!pixels) {
-      stbi_image_free(img);
-      return NULL;
-    }
-
-    sfb_obj *o = sfb_rect_from_sprite(w, h, &pixels);
-    return o;
-  } else {
-    fprintf(stderr,
-            "Incorrect channel count or size! CHANNELS-> Need:%d Have:%d "
-            "SIZE-> %dx%d\n",
-            SFB_COL_CHANNELS, channels, w, h);
+  sfb_obj *obj = NULL;
+  if (w > 0 && h > 0) {
+    obj = sfb_rect_from_sprite(w, h, img, SFB_RGBA_CHANNELS);
   }
 
+  fprintf(stdout, "Loaded: %p\n", (void *)obj);
   stbi_image_free(img);
-  return NULL;
+  return obj;
 }

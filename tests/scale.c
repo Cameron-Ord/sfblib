@@ -3,13 +3,17 @@
 #include "../include/sfb.h"
 
 int main(void) {
-  sfb_framebuffer *fb = sfb_buffer_alloc(800, 600);
-  sfb_fb_clear(fb, 0xFF00FF00);
-  sfb_obj *sprite = sfb_image_load("sprite.png");
-  sprite->pixels = sfb_scale_nearest_topleft_malloc(sprite->pixels, &sprite->w,
-                                                    &sprite->h, 1);
-  sfb_write_obj_rect(sprite, fb);
-  sfb_image_write_png(sprite->w, sprite->h, sprite->pixels, 4,
+  sfb_framebuffer *fb = sfb_create_framebuffer(800, 600, SFB_BLEND_ENABLED);
+  sfb_fb_clear(fb, (sfb_colour){0, 0, 0, 255});
+  sfb_obj *sprite = sfb_image_load("sprite.png", 0);
+  if (!sprite) {
+    fprintf(stderr, "Failed to load sprite\n");
+    return 1;
+  }
+  sprite->pixels.data = sfb_scale_nearest_topleft_malloc(
+      sprite->pixels.data, &sprite->w, &sprite->h, 2, sprite->channels);
+  sfb_write_obj_rect(sprite, fb, NULL);
+  sfb_image_write_png(sprite->w, sprite->h, sprite->pixels.data,
                       "sprite_scaled.png");
 
   sfb_free_framebuffer(fb);

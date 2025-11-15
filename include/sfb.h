@@ -32,7 +32,7 @@ sfb_obj *sfb_image_load(const char *filepath, int flags);
 #endif // IMAGE_LOADING
 
 #ifdef IMAGE_WRITING
-int sfb_image_write_png(int w, int h, const sfb_pixel *pixels, int channels,
+int sfb_image_write_png(int w, int h, const uint8_t *pixels,
                         const char *filepath);
 #endif // IMAGE_WRITING
 

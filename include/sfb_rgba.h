@@ -3,17 +3,13 @@
 #include "sfb_pix_def.h"
 
 // RGBA manipulation
-uint32_t sfb_blend_pixel(const uint8_t dstp[SFB_COL_CHANNELS],
-                         const uint8_t srcp[SFB_COL_CHANNELS]);
+void sfb_blend_pixel(uint8_t *blended, const uint8_t *dstp,
+                     const uint8_t *srcp);
 uint8_t sfb_col_exposure(uint8_t col, float intensity);
 uint8_t sfb_col_additive(uint8_t dst, uint8_t src);
 uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src);
 uint8_t sfb_col_blended(uint8_t dst, uint8_t src, uint8_t a);
-uint32_t sfb_light_additive(const uint8_t dstp[SFB_COL_CHANNELS],
-                            const uint8_t srcp[SFB_COL_CHANNELS]);
-
-sfb_pixel *sfb_pixels_from_rgba8(const uint8_t pixels[], int w, int h,
-                                 int channels);
+void sfb_light_additive(uint8_t *add, const uint8_t *dstp, const uint8_t *srcp);
 
 // Pixel colours are represented in a union, however, typically when overwriting
 // values I  strictly use uint32_t uint8_t values are just for convience and
