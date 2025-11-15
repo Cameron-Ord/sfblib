@@ -45,10 +45,12 @@ static inline void sfb_loop_obj_lighting(const sfb_light_source *light,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint8_t *src_start = rect + ((dy * cols + dx) * light->channels);
+      const int srci = ((dy * cols + dx) * light->channels);
       const int location = (y * buffer->w + x) * buffer->channels;
 
-      if (location < buffer->size && location > 0) {
+      if ((location < buffer->size && location > 0) &&
+          (srci < light->size && srci >= 0)) {
+        const uint8_t *src_start = rect + srci;
         uint8_t *dst_start = framebuffer + location;
         if (buffer->flags & SFB_BLEND_ENABLED) {
           uint8_t blended[SFB_RGBA_CHANNELS];
@@ -109,11 +111,13 @@ static inline void sfb_loop_obj_rect(const sfb_obj *const obj,
       if (x < 0 || x >= buffer->w)
         continue;
 
-      const uint8_t *src_start = rect + ((dy * obj->w + dx) * obj->channels);
+      const int srci = ((dy * obj->w + dx) * obj->channels);
       const int location = (y * buffer->w + x) * buffer->channels;
 
-      if (location < buffer->size && location >= 0) {
+      if ((location < buffer->size && location >= 0) &&
+          (srci < obj->size && srci >= 0)) {
         uint8_t *dst_start = framebuffer + location;
+        const uint8_t *src_start = rect + srci;
         if (buffer->flags & SFB_BLEND_ENABLED) {
           uint8_t blended[SFB_RGBA_CHANNELS];
           sfb_blend_pixel(blended, dst_start, src_start);

@@ -15,14 +15,15 @@ int main(int argc, char **argv) {
   SDL_Texture *t = SDL_CreateTexture(r, SDL_PIXELFORMAT_RGBA8888,
                                      SDL_TEXTUREACCESS_STREAMING, 300, 300);
 
-  sfb_framebuffer *fb =
-      sfb_create_framebuffer(300, 300, SFB_ENABLE_MULTITHREADED);
-  sfb_obj *obj = sfb_create_rect(0, 0, 25, 25, SFB_RGBA(255, 255, 255, 255));
+  sfb_framebuffer *fb = sfb_create_framebuffer(
+      300, 300, SFB_ENABLE_MULTITHREADED | SFB_BLEND_ENABLED);
+  sfb_obj *obj = sfb_create_rect(0, 0, 25, 25, (sfb_colour){255, 255, 255, 255},
+                                 fb->channels);
 
   SDL_ShowWindow(w);
   int running = 1;
   while (running) {
-    sfb_fb_clear(fb, SFB_RGBA(0, 0, 0, 0));
+    sfb_fb_clear(fb, (sfb_colour){0, 0, 0, 255});
 
     for (int i = 0; i < fb->cores; i++) {
       sfb_thread_dequeue(&fb->thread_render_data[i]);
@@ -65,7 +66,10 @@ int main(int argc, char **argv) {
     }
     sfb_wait_threads(fb->thread_render_data, fb->cores);
 
-    if (SDL_UpdateTexture(t, NULL, fb->data, sizeof(uint32_t) * 300) < 0) {
+    // Using SDL_UpdateTexture here, but this is slow and the real way to do
+    // this is to use SDL_LockTexture()
+    if (SDL_UpdateTexture(t, NULL, fb->pixels.data, sizeof(uint32_t) * 300) <
+        0) {
       printf("SDLERR->%s\n", SDL_GetError());
     }
     if (SDL_RenderCopy(r, t, NULL, NULL) < 0) {

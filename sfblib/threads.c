@@ -471,36 +471,39 @@ void *sfb_thread_posix_worker(void *arg) {
         continue;
       }
 
-      const int w = job->buffer->w, h = job->buffer->h;
-      const size_t size = job->buffer->size;
-      const int flags = job->buffer->flags;
-      uint8_t *framebuffer = job->buffer->pixels.data;
-      const uint8_t *rect = job->obj->pixels.data;
-      const int channels = job->buffer->channels;
+      sfb_framebuffer *f = job->buffer;
+      const sfb_obj *obj = job->obj;
 
-      for (int dy = 0; dy < h; dy++) {
+      const int buffer_channels = f->channels;
+      const int obj_channels = obj->channels;
+      uint8_t *framebuffer = f->pixels.data;
+      const uint8_t *rect = obj->pixels.data;
+
+      for (int dy = 0; dy < obj->h; dy++) {
         const int y = job->y0 + dy;
         if (y < 0 || y >= job->buffer->h) {
           continue;
         }
 
-        for (int dx = 0; dx < w; dx++) {
+        for (int dx = 0; dx < obj->w; dx++) {
           const int x = job->x0 + dx;
           if (x < 0 || x >= job->buffer->w) {
             continue;
           }
 
-          const uint8_t *src_start = rect + ((dy * w + dx) * channels);
-          const int location = (y * w + x) * channels;
+          const int srci = (dy * obj->w + dx) * obj_channels;
+          const int location = (y * f->w + x) * buffer_channels;
 
-          if (location < size && location >= 0) {
+          if ((location < f->size && location >= 0) &&
+              (srci < obj->size && srci >= 0)) {
+            const uint8_t *src_start = rect + srci;
             uint8_t *dst_start = framebuffer + location;
-            if (flags & SFB_BLEND_ENABLED) {
+            if (f->flags & SFB_BLEND_ENABLED) {
               uint8_t blended[SFB_RGBA_CHANNELS];
               sfb_blend_pixel(blended, dst_start, src_start);
-              sfb_put_pixel(dst_start, blended, channels);
+              sfb_put_pixel(dst_start, blended, buffer_channels);
             } else {
-              sfb_put_pixel(dst_start, src_start, channels);
+              sfb_put_pixel(dst_start, src_start, buffer_channels);
             }
           }
         }
