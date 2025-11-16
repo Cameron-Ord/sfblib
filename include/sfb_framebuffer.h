@@ -22,9 +22,8 @@ sfb_obj *sfb_create_rect(int x, int y, int w, int h, sfb_colour colour,
                          int channels);
 sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
                                           const int channels, float size_coeff,
-                                          float intensity, float range,
-                                          float dither_rate, sfb_colour c,
-                                          int flags);
+                                          float intensity, float dither_rate,
+                                          sfb_colour c, int flags);
 void sfb_assign_light(sfb_obj *const obj, sfb_light_source *light);
 void sfb_remove_light_source(sfb_obj *const obj, sfb_light_source *light);
 void sfb_free_light_source(sfb_light_source *light);

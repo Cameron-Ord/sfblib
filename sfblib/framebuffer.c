@@ -135,9 +135,8 @@ void sfb_assign_light(sfb_obj *const obj, sfb_light_source *light) {
 
 sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
                                           const int channels, float size_coeff,
-                                          float intensity, float range,
-                                          float dither_rate, sfb_colour c,
-                                          int flags) {
+                                          float intensity, float dither_rate,
+                                          sfb_colour c, int flags) {
   if (obj && !(obj->flags & SFB_LIGHT_SOURCE)) {
     sfb_light_source *light = malloc(sizeof(sfb_light_source));
     if (!light) {
@@ -149,6 +148,14 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
     light->w = obj->w * size_coeff;
     light->h = obj->h * size_coeff;
     const size_t heap_size = light->w * light->h * channels;
+
+    if (intensity > 1.0f) {
+      intensity = 1.0f;
+    }
+
+    if (dither_rate > 1.0f) {
+      dither_rate = 1.0f;
+    }
 
     light->lightmap.data = malloc(heap_size * sizeof(uint8_t));
     if (!light->lightmap.data) {
@@ -175,34 +182,22 @@ sfb_light_source *sfb_create_light_source(const sfb_obj *const obj,
 
     const int cx = light->w / 2;
     const int cy = light->h / 2;
-
-    const int wcut = (light->w * range) / 2;
-    const int hcut = (light->h * range) / 2;
+    const float radius = sqrtf(cx * cx + cy * cy);
+    const float inv = 1.0f / radius;
 
     uint8_t *data = light->lightmap.data;
-
     for (int y = 0; y < light->h; y++) {
       for (int x = 0; x < light->w; x++) {
-
-        int dx = x > cx ? x - cx : cx - x;
-        int dy = y > cy ? y - cy : cy - y;
-
-        float pix_int = intensity;
-
-        if (dx > wcut) {
-          int excess = dx - wcut;
-          pix_int *= powf(dither_rate, excess);
-        }
-
-        if (dy > hcut) {
-          int excess = dy - hcut;
-          pix_int *= powf(dither_rate, excess);
-        }
+        const float dx = (float)x - cx;
+        const float dy = (float)y - cy;
+        const float dist = sqrtf(dx * dx + dy * dy);
+        const float fade = 1.0f - (dist * inv);
 
         int i = y * light->w + x;
-
-        for (int c = 0; c < channels; c++)
+        for (int c = 0; c < channels; c++) {
+          const float pix_int = intensity * fade * dither_rate;
           data[i * channels + c] = sfb_col_exposure(colours[c], pix_int);
+        }
       }
     }
 

@@ -14,7 +14,7 @@ int main(void) {
       sfb_create_rect(WIDTH / 2, HEIGHT / 2, 32, 32,
                       (sfb_colour){255, 0, 0, 255}, buffer->channels);
   sfb_light_source *light =
-      sfb_create_light_source(obj, buffer->channels, 12.0f, 1.0f, 0.025, 0.99,
+      sfb_create_light_source(obj, buffer->channels, 2.0f, 1.00f, 0.80f,
                               (sfb_colour){255, 165, 0, 255}, 0);
   sfb_assign_light(obj, light);
   sfb_fb_clear(buffer, (sfb_colour){0, 0, 0, 255});

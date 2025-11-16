@@ -1,8 +1,9 @@
 #include "../include/sfb_rgba.h"
 const uint8_t CHANNEL_MAX = UINT8_MAX;
 
-static uint8_t sfb_channel_clamp(uint8_t c) {
-  return (c > CHANNEL_MAX) ? CHANNEL_MAX : c;
+// Needs to be 16_t because it will wrap the passed uint8 if goes past 255
+static uint8_t sfb_channel_clamp(uint16_t c) {
+  return (c >= CHANNEL_MAX) ? CHANNEL_MAX : c;
 }
 
 // static uint32_t sfb_argb32_to_rgba32(uint32_t argb) {
