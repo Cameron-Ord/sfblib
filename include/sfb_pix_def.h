@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 typedef struct sfb_pixel_data sfb_pixel_data;
-typedef struct sfb_colour sfb_colour;
+typedef struct sfb_rgba sfb_rgba;
+typedef struct sfb_rgb sfb_rgb;
 
 #define SFB_MAX_CHANNELS 4
 #define SFB_RGB_CHANNELS 3
@@ -15,7 +16,11 @@ typedef struct sfb_colour sfb_colour;
 #define BLUE 2
 #define ALPHA 3
 
-struct sfb_colour {
+struct sfb_rgb {
+  uint8_t r, g, b;
+};
+
+struct sfb_rgba {
   uint8_t r, g, b, a;
 };
 

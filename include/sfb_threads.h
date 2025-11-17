@@ -6,18 +6,20 @@
 
 typedef struct sfb_thread_job sfb_thread_job;
 typedef struct sfb_framebuffer sfb_framebuffer;
-typedef struct sfb_obj sfb_obj;
+typedef struct sfb_rect sfb_rect;
 
 struct sfb_thread_job {
   int done, dequeued;
   sfb_framebuffer *buffer;
-  const sfb_obj *obj;
+  const sfb_rect *obj;
   int y0, x0;
 };
 
 typedef struct sfb_thread_ctx_renderer sfb_thread_ctx_renderer;
 typedef struct sfb_thread_handle sfb_thread_handle;
 
+void sfb_close_threads(sfb_framebuffer *f);
+int sfb_threads_validate(sfb_thread_ctx_renderer *ctxs, int cores);
 sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores);
 sfb_thread_handle *sfb_thread_handle_allocate(const int cores);
 sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *handles,
@@ -28,7 +30,7 @@ int sfb_resume_thread(sfb_thread_ctx_renderer *ctx);
 int sfb_pause_thread(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_dequeue(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, sfb_framebuffer *buf,
-                         const sfb_obj *const obj, int y0, int x0);
+                         const sfb_rect *const obj, int y0, int x0);
 int sfb_get_cores(void);
 int sfb_kill_thread(sfb_thread_ctx_renderer *ctx, sfb_thread_handle *handle);
 // Ensure threads are joined and finished before calling these functions
@@ -46,8 +48,8 @@ int sfb_wait_threads(sfb_thread_ctx_renderer *ctxs, int cores);
 #include <pthread.h>
 // This is not heap allocated or stored in a struct, this is managed by the
 // programmer and can be heap or stack allocated as sfb_thread_handle
-// handles[cores] once the core count from get_cores() has been called, this is
-// needed before threads can be spawned
+// handles[cores] once the core count from get_cores() has been called, this
+// is needed before threads can be spawned
 struct sfb_thread_handle {
   pthread_t handle;
 };
@@ -71,7 +73,7 @@ int sfb_resume_thread_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_pause_thread_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx);
 int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx,
-                               sfb_framebuffer *buf, const sfb_obj *const obj,
+                               sfb_framebuffer *buf, const sfb_rect *const obj,
                                int y0, int x0);
 int sfb_kill_thread_posix(sfb_thread_ctx_renderer *ctx,
                           sfb_thread_handle *handle);

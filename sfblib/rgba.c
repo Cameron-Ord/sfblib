@@ -43,7 +43,7 @@ void sfb_blend_pixel(uint8_t *blended, const uint8_t *dstp,
   blended[ALPHA] = sfb_mix_alpha(adst, asrc);
 }
 
-void sfb_light_additive(uint8_t *add, const uint8_t *dstp,
+void sfb_multiply_pixel(uint8_t *add, const uint8_t *dstp,
                         const uint8_t *srcp) {
 
   uint8_t rdst = *(dstp + RED);
@@ -54,9 +54,9 @@ void sfb_light_additive(uint8_t *add, const uint8_t *dstp,
   uint8_t gsrc = *(srcp + GREEN);
   uint8_t bsrc = *(srcp + BLUE);
 
-  add[RED] = sfb_col_additive(rdst, rsrc);
-  add[GREEN] = sfb_col_additive(gdst, gsrc);
-  add[BLUE] = sfb_col_additive(bdst, bsrc);
+  add[RED] = sfb_col_multiply(rdst, rsrc);
+  add[GREEN] = sfb_col_multiply(gdst, gsrc);
+  add[BLUE] = sfb_col_multiply(bdst, bsrc);
 }
 
 uint8_t sfb_mix_alpha(uint8_t dst, uint8_t src) {
@@ -67,8 +67,8 @@ uint8_t sfb_col_exposure(uint8_t col, float intensity) {
   return sfb_channel_clamp(col * intensity);
 }
 
-uint8_t sfb_col_additive(uint8_t dst, uint8_t src) {
-  return sfb_channel_clamp(src + dst);
+uint8_t sfb_col_multiply(uint8_t dst, uint8_t src) {
+  return sfb_channel_clamp(dst * (src / 255));
 }
 
 uint8_t sfb_col_blended(uint8_t dst, uint8_t src, uint8_t a) {

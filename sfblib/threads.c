@@ -1,3 +1,4 @@
+#include "../include/sfb_allocator.h"
 #include "../include/sfb_flags.h"
 #include "../include/sfb_framebuffer.h"
 #include "../include/sfb_rgba.h"
@@ -6,8 +7,34 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+
+void sfb_close_threads(sfb_framebuffer *f) {
+  fprintf(stdout, "Killing threads..\n");
+  for (int i = 0; i < f->meta.cores; i++) {
+    sfb_thread_ctx_renderer *ctx = &f->r.thread_render_data[i];
+    sfb_thread_handle *handle = &f->r.thread_handles[i];
+    sfb_kill_thread(ctx, handle);
+  }
+  sfb_free_ctxs(f->r.thread_render_data);
+  sfb_free_handles(f->r.thread_handles);
+  fprintf(stdout, "..Done\n");
+}
+
+int sfb_threads_validate(sfb_thread_ctx_renderer *ctxs, int cores) {
+  if (!ctxs) {
+    return 0;
+  }
+
+  for (int i = 0; i < cores; i++) {
+    sfb_thread_ctx_renderer *ctx = &ctxs[i];
+    if (!ctx->valid) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
 
 // CONTROL FLOW
 int sfb_get_cores(void) {
@@ -87,51 +114,12 @@ sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *thread_handles,
 }
 
 int sfb_thread_queue_job(sfb_thread_ctx_renderer *ctx, sfb_framebuffer *buf,
-                         const sfb_obj *const obj, int y0, int x0) {
+                         const sfb_rect *const obj, int y0, int x0) {
 #if POSIX
   return sfb_thread_queue_job_posix(ctx, buf, obj, y0, x0);
 #elif WINDOWS
   return 0;
 #endif
-}
-
-// GENERIC ; PLATFORM AGNOSTIC
-sfb_thread_handle *sfb_thread_handle_allocate(const int cores) {
-  sfb_thread_handle *handles = calloc(cores, sizeof(sfb_thread_handle));
-  if (!handles) {
-    return NULL;
-  }
-  return handles;
-}
-
-sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores) {
-  sfb_thread_ctx_renderer *thread_ctxs =
-      calloc(cores, sizeof(sfb_thread_ctx_renderer));
-  if (!thread_ctxs) {
-    return NULL;
-  }
-
-  for (int j = 0; j < cores; j++) {
-    for (int i = 0; i < SFB_THREAD_QUEUE_MAX; i++) {
-      thread_ctxs[j].jptrs[i] = &thread_ctxs[j].queue[i];
-    }
-  }
-
-  return thread_ctxs;
-}
-
-void sfb_free_ctxs(sfb_thread_ctx_renderer *ctxs) {
-  if (ctxs) {
-    free(ctxs);
-  }
-  ctxs = NULL;
-}
-
-void sfb_free_handles(sfb_thread_handle *handles) {
-  if (handles) {
-    free(handles);
-  }
-  handles = NULL;
 }
 
 // PLATFORM SPECIFIC CODE:
@@ -142,7 +130,7 @@ static int sfb_thread_mutex_unlock(pthread_mutex_t *m);
 static int sfb_thread_stop_flag_posix(sfb_thread_ctx_renderer *ctx);
 static int sfb_thread_queue_seek(sfb_thread_ctx_renderer *ctx);
 static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx,
-                                sfb_framebuffer *buf, const sfb_obj *const obj,
+                                sfb_framebuffer *buf, const sfb_rect *const obj,
                                 int y0, int x0, int pos);
 static int sfb_thread_cond_signal(pthread_cond_t *c);
 static int sfb_thread_join(pthread_t *handle);
@@ -252,7 +240,7 @@ static int sfb_thread_mutex_unlock(pthread_mutex_t *m) {
 }
 
 static int sfb_thread_queue_add(sfb_thread_ctx_renderer *ctx,
-                                sfb_framebuffer *buf, const sfb_obj *const obj,
+                                sfb_framebuffer *buf, const sfb_rect *const obj,
                                 int y0, int x0, int pos) {
   if (!sfb_thread_mutex_lock(&ctx->mutex)) {
     return 0;
@@ -339,7 +327,7 @@ int sfb_thread_dequeue_posix(sfb_thread_ctx_renderer *ctx) {
 }
 
 int sfb_thread_queue_job_posix(sfb_thread_ctx_renderer *ctx,
-                               sfb_framebuffer *buf, const sfb_obj *const obj,
+                               sfb_framebuffer *buf, const sfb_rect *const obj,
                                int y0, int x0) {
   if (ctx && buf && obj) {
     int queue_pos = -1;
@@ -472,33 +460,33 @@ void *sfb_thread_posix_worker(void *arg) {
       }
 
       sfb_framebuffer *f = job->buffer;
-      const sfb_obj *obj = job->obj;
+      const sfb_rect *obj = job->obj;
 
-      const int buffer_channels = f->channels;
+      const int buffer_channels = f->meta.channels;
       const int obj_channels = obj->channels;
       uint8_t *framebuffer = f->pixels.data;
       const uint8_t *rect = obj->pixels.data;
 
       for (int dy = 0; dy < obj->h; dy++) {
         const int y = job->y0 + dy;
-        if (y < 0 || y >= job->buffer->h) {
+        if (y < 0 || y >= f->meta.h) {
           continue;
         }
 
         for (int dx = 0; dx < obj->w; dx++) {
           const int x = job->x0 + dx;
-          if (x < 0 || x >= job->buffer->w) {
+          if (x < 0 || x >= f->meta.w) {
             continue;
           }
 
           const int srci = (dy * obj->w + dx) * obj_channels;
-          const int location = (y * f->w + x) * buffer_channels;
+          const int location = (y * f->meta.w + x) * buffer_channels;
 
-          if ((location < f->size && location >= 0) &&
+          if ((location < f->meta.size && location >= 0) &&
               (srci < obj->size && srci >= 0)) {
             const uint8_t *src_start = rect + srci;
             uint8_t *dst_start = framebuffer + location;
-            if (f->flags & SFB_BLEND_ENABLED) {
+            if (f->meta.flags & SFB_BLEND_ENABLED) {
               uint8_t blended[SFB_RGBA_CHANNELS];
               sfb_blend_pixel(blended, dst_start, src_start);
               sfb_put_pixel(dst_start, blended, buffer_channels);
@@ -543,10 +531,9 @@ int sfb_get_cores_posix(void) {
 
 sfb_thread_ctx_renderer *
 sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
-  sfb_thread_ctx_renderer *thread_ctxs = sfb_thread_ctx_allocate(cores);
+  sfb_thread_ctx_renderer *thread_ctxs =
+      sfb_calloc(cores, sizeof(sfb_thread_ctx_renderer));
   if (!thread_ctxs) {
-    fprintf(stderr, "Could not allocate thread contexts! -> %s\n",
-            strerror(errno));
     return NULL;
   }
 
@@ -565,6 +552,7 @@ sfb_spawn_threads_posix(sfb_thread_handle *thread_handles, const int cores) {
       ctx->queue[j].buffer = NULL;
       ctx->queue[j].y0 = 0;
       ctx->queue[j].x0 = 0;
+      ctx->jptrs[j] = &ctx->queue[j];
     }
 
     if (!sfb_thread_mutex_init(&ctx->mutex)) {

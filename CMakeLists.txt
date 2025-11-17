@@ -1,5 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 project(sfblib VERSION 1.0 LANGUAGES C)
-set(SOURCES sfblib/matrices.c sfblib/threads.c sfblib/rgba.c sfblib/scale.c sfblib/camera.c sfblib/framebuffer.c sfblib/framebuffer_write.c tools/image_write.c tools/image_conv.c)
+set(SOURCES  
+  sfblib/mem.c
+  sfblib/lighting.c
+  sfblib/rect.c
+  sfblib/threads.c 
+  sfblib/rgba.c 
+  sfblib/scale.c 
+  sfblib/camera.c 
+  sfblib/framebuffer.c 
+  sfblib/framebuffer_write.c
+  tools/image_write.c 
+  tools/image_conv.c
+)
 add_library(sfb SHARED ${SOURCES})
 target_compile_options(sfb PRIVATE -Wall -g -Wpedantic)
