@@ -21,10 +21,16 @@ static void sfb_fb_init(sfb_framebuffer_meta *m, const int width,
 
 static int sfb_fb_init_threads(sfb_framebuffer *f) {
   int cores = sfb_get_cores();
+  if (cores < 1) {
+    fprintf(stderr, "Could not acquire available cores\n");
+    f->meta.flags &= SFB_ENABLE_MULTITHREADED;
+    return 0;
+  }
+
   sfb_thread_handle *handles = NULL;
   sfb_thread_ctx_renderer *ctx = NULL;
 
-  handles = sfb_thread_handle_allocate(cores);
+  handles = sfb_calloc(cores, sizeof(sfb_thread_handle));
   if (handles) {
     ctx = sfb_spawn_threads(handles, cores);
   }

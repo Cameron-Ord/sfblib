@@ -20,8 +20,6 @@ typedef struct sfb_thread_handle sfb_thread_handle;
 
 void sfb_close_threads(sfb_framebuffer *f);
 int sfb_threads_validate(sfb_thread_ctx_renderer *ctxs, int cores);
-sfb_thread_ctx_renderer *sfb_thread_ctx_allocate(const int cores);
-sfb_thread_handle *sfb_thread_handle_allocate(const int cores);
 sfb_thread_ctx_renderer *sfb_spawn_threads(sfb_thread_handle *handles,
                                            int cores);
 
@@ -87,6 +85,23 @@ void *sfb_thread_posix_worker(void *arg);
 #elif defined(_WIN32) || defined(_WIN64)
 #define POSIX 0
 #define WINDOWS 1
+
+struct sfb_thread_handle {
+  int handle;
+};
+
+struct sfb_thread_ctx_renderer {
+  int cond;
+  int finished;
+  int mutex;
+  _Atomic int errcode;
+  int active;
+  int valid;
+  int queued;
+  int working;
+  sfb_thread_job queue[SFB_THREAD_QUEUE_MAX];
+  sfb_thread_job *jptrs[SFB_THREAD_QUEUE_MAX];
+};
 
 #endif
 
